@@ -1,0 +1,48 @@
+/*
+po-widget {
+    --background: white;
+    --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+    --border-width: 0;
+  }
+    */
+
+/* 
+    po-button {
+      --color: rgb(255,255,255);  
+      --border-radius: 12px;
+      --font-size: 16px;
+      --background-color: rgb(0,0,255);
+  }
+      */
+
+      .buttonpad {
+        --color: rgb(0,0,255);  
+        --border-radius: 12px;
+        --font-size: 16px;
+        --background-color: rgb(255,255,255);
+    } 
+
+    .buttonlc {
+        --color: rgb(255,255,255);  
+        --border-radius: 12px;
+        --font-size: 16px;
+        --background-color: rgb(0,0,255);
+    } 
+
+    .buttoncp {
+      --color: rgb(255,255,255);  
+      --border-radius: 12px;
+      --font-size: 16px;
+      --background-color: rgb(255,0,0);
+      
+  }
+
+  .po-input {
+    --font-size: 10px;
+    --padding: 0.5rem;
+  }
+
+  .divtb {
+    line-height: 1.0;
+  }

@@ -1,0 +1,333 @@
+<!--<p>browse works!</p>-->
+<po-loading-overlay
+[hidden]="hideLoading">
+</po-loading-overlay>
+
+<!--<po-toolbar class="divtb" p-title="CENTRAL DE ANÁLISE DE CRÉDITO E LIBERAÇÃO DE PEDIDOS DE VENDAS*"></po-toolbar> -->
+
+<!--<po-menu [p-menus]="menus"></po-menu>-->
+
+<!--Ita - Retirado menu para ganhar espaço na tela <po-page-default p-title="Bokus(Home)" [p-actions]="actions"> -->
+
+<po-page-default p-subtitle="CENTRAL DE ANÁLISE DE CRÉDITO E LIBERAÇÃO DE PEDIDOS DE VENDAS">
+
+
+  <!--<po-button p-label="Sair" (p-click)="this.closeApp()"> </po-button>-->
+  <!--
+  <p> AppName page </p>
+  <po-avatar p-src="https://po-ui.io/assets/graphics/logo-po.png"> </po-avatar>
+  -->
+<!--<po-widget class="po-widget">-->
+  <div [hidden]="this.lShowHome" id="divHome">
+    <po-widget>
+      <po-modal
+        [p-click-out]="lclickout"
+        [p-hide-close]="lhideclose"
+        [p-primary-action]="primaryAction"
+        [p-secondary-action]=""
+        [p-size]="size"
+        [p-title]="titlemd"
+        [p-icon]="icon">{{ content }}
+      </po-modal>
+ 
+      <div class="po-row">
+
+          <div class="po-md-12">
+              <!-- Ita - Área do Grid de Pedidos-->
+              <po-table 
+                #POPedidos
+                p-container="true" 
+                [p-hide-columns-manager]="true" 
+                [p-hide-table-search]="true"
+                [p-columns]="colunas" 
+                [p-items]="pedidos" 
+                [p-sort]="true" 
+                [p-striped]="true"
+                [p-hide-table-search]="false"
+                (p-selected)="changeOptions($event, 'new')" 
+                (p-unselected)="changeOptions($event, 'change')"
+                [p-selectable]="true"
+                (p-show-more)="showMore()"
+                [p-infinite-scroll]="lInfiniteScroll"
+                p-selectable-entire-line="true" 
+                [p-height]="600" 
+                [p-selectable-entire-line]="true">
+              </po-table>
+              <!-- Ita - Fim da área do grid de Pedidos-->
+          </div>
+      </div>
+    </po-widget> 
+  <!-- Ita - Área das abas dos detalhes operacionais-->
+
+  <po-tabs>
+    <po-tab p-label="Informações" [p-disabled]="!this.lLibAbas">
+      <!--<form>-->
+        <div class="po-row">
+          <div class="po-md-2">
+            <!--<po-input name="codlojCli" p-readonly p-label="Código" p-required> </po-input>-->
+            <po-input p-readonly name="codCli" [(ngModel)]="this.codCli" p-clean p-label="Código" p-required> </po-input>
+          </div>
+
+          <div class="po-md-1">
+            <!--<po-input name="codlojCli" p-readonly p-label="Código" p-required> </po-input>-->
+            <po-input p-readonly name="lojCli" [(ngModel)]="this.lojCli" p-clean p-label="Loja" p-required> </po-input>
+          </div>
+
+          <div class="po-md-3">                  
+            <po-input p-readonly name="nomeCli" [(ngModel)]="this.nomeCli" p-clean p-label="Nome" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="cnpjCli" [(ngModel)]="this.cnpjCli" p-clean p-label="CNPJ" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="inscCli" [(ngModel)]="this.inscCli" p-clean p-label="Inscrição" p-required> </po-input>
+          </div>
+          <div class="po-md-2">
+            <br>                  
+            <po-button class="buttonlc" p-label="Liberar Crédito" (p-click)="this.golibCliCred(this.pedido,this.codCli,'1',this.statuspedido,this.filialpv)"> </po-button>
+          </div>                                
+        </div>
+        
+        <div class="po-row">
+          <div class="po-md-2">
+            <po-input p-readonly name="codblq" [(ngModel)]="this.codblq" p-clean p-label="Bloqueio" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="descblq" [(ngModel)]="this.descblq" p-clean p-label="Descrição" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="tel" [(ngModel)]="this.tel" p-clean p-label="Telefone" p-required> </po-input>
+          </div>
+          <div class="po-md-1">                  
+            <po-input p-readonly name="codcnd" [(ngModel)]="this.codcnd" p-clean p-label="Condição" p-required> </po-input>
+          </div>
+          <div class="po-md-3">                  
+            <po-input p-readonly name="desccnd" [(ngModel)]="this.desccnd" p-clean p-label="Descrição" p-required> </po-input>
+          </div>
+          <!--
+          <div class="po-md-2">                  
+            <po-input p-readonly name="tel2" [(ngModel)]="this.tel2" p-clean p-label="Telefone2" p-required> </po-input>
+          </div>
+          --> 
+          <div class="po-md-2">
+            <br>                                    
+            <po-button class="buttonpad" p-label="Liberar Pedido" (p-click)="this.golibCredPV(this.pedido,this.codCli,'1',this.statuspedido,this.filialpv)"> </po-button>
+          </div>                                                       
+        </div>
+        
+        <div class="po-row">
+          <div class="po-md-4">
+            <po-input p-readonly name="email" [(ngModel)]="this.email" p-clean p-label="E-mail" p-required> </po-input>
+          </div>
+          <!--
+          <div class="po-md-2">                  
+            <po-input p-readonly name="fax" [(ngModel)]="this.fax" p-clean p-label="Fax" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="vaz" [(ngModel)]="this.vaz" p-clean p-label="   " p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="fax2" [(ngModel)]="this.fax2" p-clean p-label="Fax2" p-required> </po-input>
+          </div>
+          -->
+          <div class="po-md-2">
+            <po-input p-readonly name="codseg" [(ngModel)]="this.codseg" p-clean p-label="Segmento" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="descseg" [(ngModel)]="this.descseg" p-clean p-label="Descrição" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="cel" [(ngModel)]="this.cel" p-clean p-label="Celular" p-required> </po-input>
+          </div>            
+          <div class="po-md-2">
+            <br> 
+            <po-button class="buttonpad" p-label="Posição" (p-click)="this.goPosicao()"> </po-button>
+            <!--
+            <po-button class="buttonpad" p-label="Posição"> 
+              <a routerLink="posicao"></a>
+            </po-button>
+            -->
+          </div>                                                                   
+        </div>
+
+        <div class="po-row">
+
+          <div class="po-md-2">                  
+            <po-input p-readonly name="vendpir" [(ngModel)]="this.vendpir" p-clean p-label="Vend.Pirâmide" p-required> </po-input>
+          </div>
+          <div class="po-md-5">                  
+            <po-input p-readonly name="descvend" [(ngModel)]="this.descvend" p-clean p-label="Nome" p-required> </po-input>
+          </div>
+          <div class="po-md-1">
+            <po-input p-readonly name="qtdtit" [(ngModel)]="this.qtdtit" p-clean p-label="Qtd.Tit.Aberto" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="titaberto" [(ngModel)]="this.titaberto" p-clean p-label="Titulo em Aberto" p-required> </po-input>
+          </div>            
+          <!--
+          <div class="po-md-2">                  
+            <po-input p-readonly name="cel2" [(ngModel)]="this.cel2" p-clean p-label="Celular2" p-required> </po-input>
+          </div>
+          -->             
+          <div class="po-md-2"> 
+            <br>                                   
+            <po-button class="buttonpad" p-label="Refaz Saldo" (p-click)="this.goRefSaldo(this.regsa1)"> </po-button>
+          </div>                                                                                          
+        </div>
+
+        <div class="po-row">
+
+          <div class="po-md-2">                  
+            <po-input p-readonly name="venc15" [(ngModel)]="this.venc15" p-clean p-label="Vencimento Até 15" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="venc16" [(ngModel)]="this.venc16" p-clean p-label="Vencido Mais 16 Dias" p-required> </po-input>
+          </div>
+          <div class="po-md-2">
+            <po-input p-readonly name="limcred" [(ngModel)]="this.limcred" p-clean p-label="Limite Crédito" p-required> </po-input>
+          </div>
+          <div class="po-md-2">                  
+            <po-input p-readonly name="saldolim" [(ngModel)]="this.saldolim" p-clean p-label="Saldo do Limite" p-required> </po-input>
+          </div>                        
+          <div class="po-md-2">                  
+            <po-input p-readonly name="pedfat" [(ngModel)]="this.pedfat" p-clean p-label="Pedido P/Faturar" p-required> </po-input>
+          </div>
+          <div class="po-md-2"> 
+            <br>
+            <po-button class="buttoncp" p-label="Cancelar Pedido" (p-click)="this.godeletePV(this.pedido,this.filialpv)"> </po-button>
+          </div>                                                                               
+        </div>
+        <!--
+        <div class="po-row">
+        </div>
+        -->
+        
+    <!--</form>-->
+    </po-tab>
+    <!--
+    <po-tab p-label="Pedidos"
+    (p-click)="getItems()">
+    -->
+    <po-tab p-label="Pedidos" [p-disabled]="!this.lLibAbas">
+      <div class="po-md-12">
+        <!-- Ita - Área do Grid de Itens do Pedido-->
+        <po-table 
+          #POItems
+          p-container="true" 
+          [p-hide-columns-manager]="true" 
+          [p-hide-table-search]="true"
+          [p-columns]="colItems" 
+          [p-items]="items" 
+          [p-sort]="true" 
+          [p-striped]="true"
+          [p-height]="200">
+        </po-table>
+        <!-- Ita - Fim da Área do Grid de Itens do Pedido-->
+    </div>        
+    </po-tab>
+    <po-tab p-label="Tit.Abertos" [p-disabled]="!this.lLibAbas">
+      <div class="po-md-12">
+            <!-- Ita - Área do Grid de Titulos-->
+            <po-table 
+              #POTitulos
+              p-container="true" 
+              [p-hide-columns-manager]="true" 
+              [p-hide-table-search]="true"
+              [p-columns]="coltitulos" 
+              [p-items]="titulos" 
+              [p-sort]="true" 
+              [p-striped]="true"
+              [p-height]="200">
+            </po-table>
+            <!-- Ita - Fim da área do grid de Titulos-->          
+      </div>
+    </po-tab>
+    <po-tab p-label="Tit.Baixados" [p-disabled]="!this.lLibAbas">
+      <div class="po-md-12">
+        <!-- Ita - Área do Grid de Baixados-->
+        <po-table 
+          #POTitliq
+          p-container="true" 
+          [p-hide-columns-manager]="true" 
+          [p-hide-table-search]="true"
+          [p-columns]="colLiquidados" 
+          [p-items]="titliq" 
+          [p-sort]="true" 
+          [p-striped]="true"
+          [p-height]="200">
+        </po-table>
+        <!-- Ita - Fim da área do grid de Baixados-->          
+  </div>
+    </po-tab>
+    <po-tab p-label="Hist.Liberações" [p-disabled]="!this.lLibAbas">
+        
+        <div class="po-md-12">
+          <!-- Ita - Comentado para mostrar todas as liberações independente do usuário(Solicitação Bokus)
+          <div class="po-row">
+              <div class="po-md-2">
+                  <po-input p-readonly name="codCli" [(ngModel)]="this.codUsu" p-label="Código"></po-input>
+              </div>
+              <div class="po-md-4">                  
+                  <po-input p-readonly name="nomeCli" [(ngModel)]="this.nomeUsu" p-label="Nome"> </po-input>
+              </div>                
+          </div>
+          -->
+          <!-- Ita - Área do Grid de Histórico das Liberações-->
+          <po-table 
+          #POPosicao
+          p-container="true" 
+          [p-hide-columns-manager]="true" 
+          [p-hide-table-search]="true"
+          [p-columns]="colHistorico" 
+          [p-items]="historlib" 
+          [p-sort]="true" 
+          [p-striped]="true"
+          [p-height]="350">
+          </po-table>
+          <!-- Ita - Fim da Área de Histórico das Liberações-->
+        </div>            
+    </po-tab>
+  </po-tabs>
+
+  <!-- Ita - Fim da área dos detalhes operacionais-->
+
+  <!-- Ita - 30/09/2024 po-modal para apresentar mensagens de validação-->
+
+  <!-- Ita - 30/09/2024 fim do trecho po-modal para apresentar mensagens de validação-->
+  </div><!-- Ita - 03/10/2024 - Fim da <div id="divHome">-->
+  <div [hidden]="this.lShowPosicao" id="divPosicao">
+    <po-button p-label="Voltar" (p-click)="this.goBack()"> </po-button>
+    <div class="po-md-12">
+      <div class="po-row">
+          <div class="po-md-2">
+              <po-input p-readonly name="codCli" [(ngModel)]="this.codCli" p-label="Código"></po-input>
+          </div>
+          <div class="po-md-1">
+              <po-input p-readonly name="lojCli" [(ngModel)]="this.lojCli" p-label="Loja"> </po-input>
+          </div> 
+          <div class="po-md-4">                  
+              <po-input p-readonly name="nomeCli" [(ngModel)]="this.nomeCli" p-label="Nome"> </po-input>
+          </div>
+          <div class="po-md-3">                  
+              <po-input p-readonly name="fantaCli" [(ngModel)]="this.fantaCli" p-label="Fantasia"> </po-input>
+            </div>                                   
+      </div>
+      <po-table 
+        #POPosicao
+        p-container="true" 
+        [p-hide-columns-manager]="true" 
+        [p-hide-table-search]="true"
+        [p-columns]="colPosicao" 
+        [p-items]="posicaocli" 
+        [p-sort]="true" 
+        [p-striped]="true"
+        [p-height]="350">
+      </po-table>
+    </div>
+  </div> <!-- Ita - 03/10/2024 - Fim da <div id="divPosicao">-->
+<!-- </po-widget> Ita 14/10/2024 - Fim do po-widget-->
+</po-page-default>
+
+<!--</div>-->
+
+

@@ -1,0 +1,3 @@
+function jsToAdvpl (codeType, content) {
+
+  } 

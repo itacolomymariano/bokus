@@ -1,0 +1,28 @@
+<!--<p>histlib works!</p>-->
+<po-toolbar p-title="HISTÓRICO DE LIBERAÇÕES"></po-toolbar>
+<po-page-default p-title="Bokus(Histórico)" [p-actions]="actions">
+    <!--<po-button p-label="Voltar" (p-click)="this.goBack()"> </po-button>-->
+        <div class="po-md-12">
+            <div class="po-row">
+                <div class="po-md-2">
+                    <po-input p-readonly name="codCli" [(ngModel)]="this.codUsu" p-label="Código"></po-input>
+                </div>
+                <div class="po-md-4">                  
+                    <po-input p-readonly name="nomeCli" [(ngModel)]="this.nomeUsu" p-label="Nome"> </po-input>
+                </div>                
+            </div>
+            <!-- Ita - Área do Grid de Histórico das Liberações-->
+            <po-table 
+            #POPosicao
+            p-container="true" 
+            [p-hide-columns-manager]="true" 
+            [p-hide-table-search]="true"
+            [p-columns]="colHistorico" 
+            [p-items]="historlib" 
+            [p-sort]="true" 
+            [p-striped]="true"
+            [p-height]="350">
+            </po-table>
+            <!-- Ita - Fim da Área de Histórico das Liberações-->
+        </div>            
+</po-page-default>

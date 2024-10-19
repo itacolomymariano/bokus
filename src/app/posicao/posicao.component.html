@@ -1,0 +1,34 @@
+<!--<p>posicao works!</p>-->
+<po-toolbar p-title="POSIÇÃO DO CLIENTE"></po-toolbar>
+<po-page-default p-title="Bokus(Posição)" [p-actions]="actions">
+    <!--<po-button p-label="Voltar" (p-click)="this.goBack()"> </po-button>-->
+    <div class="po-md-12">
+        <div class="po-row">
+            <div class="po-md-2">
+                <po-input p-readonly name="codCli" [(ngModel)]="this.codCli" p-label="Código"></po-input>
+            </div>
+            <div class="po-md-1">
+                <po-input p-readonly name="lojCli" [(ngModel)]="this.lojCli" p-label="Loja"> </po-input>
+            </div> 
+            <div class="po-md-4">                  
+                <po-input p-readonly name="nomeCli" [(ngModel)]="this.nomeCli" p-label="Nome"> </po-input>
+            </div>
+            <div class="po-md-3">                  
+                <po-input p-readonly name="fantaCli" [(ngModel)]="this.fantaCli" p-label="Fantasia"> </po-input>
+              </div>                                   
+        </div>
+        <!-- Ita - Área do Grid de Posição do Cliente-->
+        <po-table 
+          #POPosicao
+          p-container="true" 
+          [p-hide-columns-manager]="true" 
+          [p-hide-table-search]="true"
+          [p-columns]="colPosicao" 
+          [p-items]="posicaocli" 
+          [p-sort]="true" 
+          [p-striped]="true"
+          [p-height]="350">
+        </po-table>
+        <!-- Ita - Fim da Área de Posição do Cliente-->
+    </div>            
+</po-page-default>

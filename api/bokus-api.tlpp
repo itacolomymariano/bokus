@@ -1,0 +1,2081 @@
+#include "tlpp-core.th"
+
+Class Bokusapi
+	Public Data jResponse as Json
+
+	Public method new()                 as Object
+	Public method getPedidos()          as Json
+	Public method getDatCli()			as Json
+	Public method getTitAbt()           as Json
+	Public method getTitLiq()           as Json
+	Public method callPosicao()         as Json
+	Public method getRefSaldo()			as Json
+	Public method libCredPV()           as Json
+	Public method libCliCred()          as Json
+	Public method deletePV()          	as Json
+	Public method getHistLib()			as Json
+	Public method callUsuProtheus() 	as Json
+	/*
+	Public method solicitacoes()          as Json
+	Public method cotacoes()              as Json
+	Public method incluirSolicitacao()    as Json
+	Public method copiarSolicitacao()    as Json
+	Public method enviaWorkflow()         as Json
+	Public method geraLink()              as Json
+	Public method alterarSolicitacao()    as Json
+	Public method filtrarSolicitacoes()   as Json
+	Public method filtrarCotacoes()       as Json
+	Public method altera()                as Json
+	Public method deletaSolicitacao()     as Json
+	Public method fornecedoresAmarrados() as Json
+	Public method fornecedores()          as Json
+	Public method centroCusto()           as Json
+	Public method armazem()           as Json
+	*/
+	Public method execute()    		      as Json
+
+EndClass
+
+Method new() as Object Class Bokusapi
+	::jResponse := JsonObject():New()
+Return Self
+
+Method getPedidos(cCall as Character,cPedSC5 as Character, filialpv as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local aPedidos        as Array
+	Local i               as Numeric
+	Local _txtproc        as Character
+	Local _Enter := chr(13) + Chr(10)
+	Local _lItems := If(Alltrim(cCall) == "I",.T.,.F.)
+
+	::jResponse["pedidos"]    := JsonObject():New()
+	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getPedidos() cCall: ["+cCall+"] filialpv:["+filialpv+"]")
+    _txtproc := ""
+	_txtproc += "Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getPedidos() cCall: ["+cCall+"] cPedSC5: ["+cPedSC5+"] filialpv:["+filialpv+"]" + _Enter
+	
+   	If !ExistDir("\po_log")
+    	ConOut('Criando pasta \po_log para gravar logs...')
+    	_nRet := MakeDir("\po_log")
+    	If _nRet == 0
+			ConOut('Pasta \po_log criado com sucesso!')
+			_txtproc += 'Itacolomy - getPedidos() - Pasta \po_log criado com sucesso!' + _Enter
+			_cmsg := 'Pasta \po_log criado com sucesso!'
+			MemoWrite("criacao_pasta_po_log.log",_cmsg)
+		Else
+			_txtproc += 'Itacolomy - getPedidos() - ERRO NA CRIACAO DA Pasta \po_log' + _Enter
+			_cmsg := 'ERRO NA CRIACAO DA Pasta \po_log'
+			MemoWrite("criacao_pasta_po_log.log",_cmsg)		
+		EndIf
+   	Else
+		_txtproc += 'Itacolomy - getPedidos() - Pasta \po_log criado ja existe!' + _Enter
+		_cmsg := 'Itacolomy - getPedidos() - Pasta \po_log criado ja existe!'
+		MemoWrite("criacao_pasta_po_log.log",_cmsg)
+	EndIf
+	
+
+	If _lItems
+		cQuery += " SELECT SC6.C6_FILIAL, SC6.C6_NUM, SC6.C6_ITEM, SC6.C6_PRODUTO, SB1.B1_DESC, SC6.C6_PRCVEN, SC6.C6_QTDVEN, " + _Enter
+		cQuery += "        SC6.C6_UM, SC6.C6_VALOR  " + _Enter
+	Else
+		cQuery += " SELECT SC5.C5_FILIAL, SC5.C5_EMISSAO, SC5.C5_NUM, SC5.C5_CLIENTE, SC5.C5_LOJACLI, " + _Enter
+		cQuery += "        SA1.A1_NOME, SC5.R_E_C_N_O_ AS ID, SC9.C9_BLCRED, SC9.C9_BLEST,  " + _Enter
+		cQuery += "        SC5.C5_VEND1,SC5.C5_CONDPAG  " + _Enter
+	EndIf
+	cQuery += "  FROM " + RetSqlName("SC5") + " SC5, " + RetSQLName("SC6")+" SC6, " + _Enter
+	cQuery += "       " + RetSQLName("SC9") + " SC9, " + RetSQLName("SA1")+" SA1 " + _Enter
+	If _lItems
+		cQuery += "       ," + RetSQLName("SB1") + " SB1 " + _Enter
+		cQuery += " WHERE SC5.C5_FILIAL = '"+filialpv+"'" + _Enter
+		cQuery += "   AND SC5.C5_FILIAL = SC6.C6_FILIAL " + _Enter
+		cQuery += "   AND SC6.C6_FILIAL = SC9.C9_FILIAL " + _Enter
+	Else
+		cQuery += " WHERE SC5.C5_FILIAL = SC6.C6_FILIAL " + _Enter
+		cQuery += "   AND SC6.C6_FILIAL = SC9.C9_FILIAL " + _Enter	
+	EndIf
+	cQuery += "   AND SA1.A1_FILIAL = '"+FWxFilial('SA1')+"' " + _Enter
+	If _lItems
+		//cQuery += "   AND SB1.B1_FILIAL = SC6.C6_FILIAL " + _Enter
+		cQuery += "   AND SC6.C6_PRODUTO = SB1.B1_COD " + _Enter
+		cQuery += "   AND SC6.C6_NUM = '"+cPedSC5+"' " + _Enter
+	EndIf
+	cQuery += "   AND SC5.C5_NUM = SC6.C6_NUM " + _Enter
+	cQuery += "   AND SC5.C5_CLIENTE = SA1.A1_COD " + _Enter
+	cQuery += "   AND SC5.C5_LOJACLI = SA1.A1_LOJA " + _Enter
+	cQuery += "   AND SC6.C6_NUM = SC9.C9_PEDIDO " + _Enter
+	//cQuery += "   AND SC6.C6_NUM = SC9.C9_PEDIDO " + _Enter
+	cQuery += "   AND SC6.C6_ITEM = SC9.C9_ITEM " + _Enter
+	cQuery += "   AND SC6.C6_PRODUTO = SC9.C9_PRODUTO " + _Enter
+	//cQuery += "   AND ( SC9.C9_BLCRED <> '10' AND SC9.C9_BLEST <> '10' ) " + _Enter
+	cQuery += "   AND ( SC9.C9_BLCRED <> '10' AND SC9.C9_BLEST = '  ' ) " + _Enter
+	cQuery += "   AND SC6.C6_QTDENT < SC6.C6_QTDVEN " + _Enter //PEDIDO AINDA COM SALDO PARA ENTREGAR
+	cQuery += "   AND SA1.A1_MSBLQL = '2' " + _Enter
+	cQuery += "   AND SC5.D_E_L_E_T_ <> '*' " + _Enter
+	cQuery += "   AND SC6.D_E_L_E_T_ <> '*' " + _Enter
+	cQuery += "   AND SC9.D_E_L_E_T_ <> '*' " + _Enter
+	cQuery += "   AND SA1.D_E_L_E_T_ <> '*' " + _Enter
+	If _lItems
+		cQuery += "   AND SB1.D_E_L_E_T_ <> '*' " + _Enter
+	EndIf
+	cQuery += "  ORDER BY SC9.C9_BLCRED DESC " + _Enter
+
+	If _lItems
+		MemoWrite("\po_log\getPedidos_Itens.SQL",cQuery) //Ita - 03/09/2024
+		MemoWrite("C:\TEMP\getPedidos_Itens.SQL",cQuery)	
+	Else
+		MemoWrite("\po_log\getPedidos_Pedidos.SQL",cQuery) //Ita - 03/09/2024
+		MemoWrite("C:\TEMP\getPedidos_Pedidos.SQL",cQuery)
+	EndIf
+	/*** Ita - 13/09/2024 - Comentado para usar query com cache ****
+	MpSysOpenQuery(cQuery, "produtos")
+	*** Ita - 13/09/2024 - Fim do comentário para usar query com cache *************************/
+	
+	//FwExecCachedQuery():OpenQuery( <cQuery> , <cAlias>, <aSetField> , <cDriver> , <cLifeTime> , <cTimeOut> )
+	/*
+		cQuery	Caractere	Query a ser executada	X	
+		cAlias	Caractere	Alias no qual a query será aberta	
+		X
+		aSetField	Array	Array com os campos para execução de TCSetField com a estrutura	
+
+		cDriver	Caractere	Driver de abertura da tabela	
+
+		cLifeTime	Caractere	Define se a query vai ficar no cache do DBAccess e qual o tempo de vida dela em segundos	X	
+		cTimeOut	Caractere	Define se a query vai ficar no cache do DBAccess e qual o timeout dela em segundos	
+	*/
+	cAlias := "pedidos"
+	cLifeTime := "240"
+	aSetField := {}
+	cTimeOut := "120"
+	//Ita - 14/09/2024 - produtos := FwExecCachedQuery():OpenQuery( cQuery , /*cAlias*/, /*aSetField*/ , /*cDrive*/ , cLifeTime , cTimeOut )
+	FwExecCachedQuery():OpenQuery( cQuery , cAlias, /*aSetField*/ , /*cDrive*/ , cLifeTime , cTimeOut )
+	//cCursor1 := FwExecCachedQuery():OpenQuery( cQuery , //, // , // , "240" , "120" )	
+	aPedidos     := {}
+	If _lItems
+
+		_txtproc += 'Itacolomy - getPedidos() - REQUEST DE ITENS ...'+ _Enter
+		ConOut('Itacolomy - getPedidos() - REQUEST DE ITENS ...')
+		
+		TCSetField("pedidos","C6_PRCVEN","N",TamSX3("C6_PRCVEN")[1],TamSX3("C6_PRCVEN")[2]) 	
+		TCSetField("pedidos","C6_QTDVEN","N",TamSX3("C6_QTDVEN")[1],TamSX3("C6_QTDVEN")[2]) 	
+		TCSetField("pedidos","C6_VALOR","N",TamSX3("C6_VALOR")[1],TamSX3("C6_VALOR")[2]) 	
+
+		While pedidos->(!EoF())
+			If aScan(aPedidos, { |x| x[1]+x[2]+x[3]+x[4] == pedidos->C6_FILIAL+pedidos->C6_NUM+pedidos->C6_ITEM+pedidos->C6_PRODUTO }) == 0
+				aAdd(aPedidos, { pedidos->C6_FILIAL							,;	//01
+								pedidos->C6_NUM								,;	//02
+								pedidos->C6_ITEM							,;	//03
+								pedidos->C6_PRODUTO							,;	//04
+								pedidos->B1_DESC							,;	//05
+								pedidos->C6_PRCVEN 				        	,;	//06
+								pedidos->C6_QTDVEN							,;	//07
+								pedidos->C6_UM 								,;	//08
+								pedidos->C6_VALOR							})	//09
+				_txtproc += 'Itacolomy - getPedidos() - pedidos->C6_FILIAL: ['+pedidos->C6_FILIAL+'] pedidos->C6_NUM: ['+pedidos->C6_NUM+'] pedidos->C6_ITEM: ['+pedidos->C6_ITEM+']  pedidos->C6_PRODUTO: ['+pedidos->C6_PRODUTO+'] pedidos->B1_DESC ['+pedidos->B1_DESC+'] pedidos->C6_PRCVEN: ['+cValToChar(pedidos->C6_PRCVEN)+'] pedidos->C6_QTDVEN: ['+cValToChar(pedidos->C6_QTDVEN)+'] pedidos->C6_UM: ['+pedidos->C6_UM+'] pedidos->C6_VALOR: ['+cValToChar(pedidos->C6_VALOR)+']'  + _Enter
+				MemoWrite("\po_log\getPedidos.log",_txtproc)
+				MemoWrite("c:\temp\getPedidos.log",_txtproc)
+				//ConOut('Itacolomy - getPedidos() - pedidos->C6_FILIAL: ['+pedidos->C6_FILIAL+'] pedidos->C6_NUM: ['+pedidos->C6_NUM+'] pedidos->C6_ITEM: ['+pedidos->C6_ITEM+']  pedidos->C6_PRODUTO: ['+pedidos->C6_PRODUTO+'] pedidos->B1_DESC ['+pedidos->B1_DESC+'] pedidos->C6_PRCVEN: ['+cValToChar(pedidos->C6_PRCVEN)+'] pedidos->C6_QTDVEN: ['+cValToChar(pedidos->C6_QTDVEN)+'] pedidos->C6_UM: ['+pedidos->C6_UM+'] pedidos->C6_VALOR: ['+cValToChar(pedidos->C6_VALOR)+']')
+			EndIf
+			pedidos->(DbSkip())
+		End
+		_cTxtLog := "Quantidade de Registros de aPedidos: ["+cValToChar(Len(aPedidos))+"]"
+		//ConOut('Itacolomy - getPedidos() - Quantidade de Registros de aPedidos: ['+cValToChar(Len(aPedidos))+']')
+		MemoWrite("\po_log\getPedidos_qtd_pedidos.log",_cTxtLog) //Ita - 14/09/2024
+		//MemoWrite("c:\temp\getPedidos_qtd_pedidos.log",_cTxtLog)
+		_txtproc += 'Itacolomy - getPedidos() - Vou montar o JSON  COM ['+cValToChar(Len(aPedidos))+'] Itens do Pedidos'+ _Enter
+		cPicPrc := PesqPict("SC6","C6_PRCVEN")
+		cPicVlr := PesqPict("SC6","C6_VALOR")
+		cPicQtd := PesqPict("SC6","C6_QTDVEN")
+		If Len(aPedidos) > 0
+			::jResponse["pedidos"] := Array(Len(aPedidos))
+			For i := 1 to Len(aPedidos)
+				::jResponse["pedidos"][i]             	:= JsonObject():new()
+				::jResponse["pedidos"][i]["item"]       := AllTrim(aPedidos[i,3])
+				::jResponse["pedidos"][i]["codigo"]   	:= AllTrim(aPedidos[i,4])
+				::jResponse["pedidos"][i]["desc"]   	:= AllTrim(EncodeUTF8(aPedidos[i,5]))
+				::jResponse["pedidos"][i]["prunit"]  	:= aPedidos[i,6] //Transform(aPedidos[i,6],cPicPrc)
+				::jResponse["pedidos"][i]["quantidade"] := Transform(aPedidos[i,7],cPicQtd)
+				::jResponse["pedidos"][i]["um"]     	:= AllTrim(aPedidos[i,8])
+				::jResponse["pedidos"][i]["vlrtot"]   	:= aPedidos[i,9] //Transform(aPedidos[i,9],cPicVlr)
+				::jResponse["pedidos"][i]["filial"]     := aPedidos[i,1]
+				_txtproc += 'Itacolomy - getPedidos() - JSON filial: ['+aPedidos[i,1]+'] Pedido: ['+aPedidos[i,2]+'] item: ['+AllTrim(aPedidos[i,3])+'] codigo: ['+AllTrim(aPedidos[i,4])+'] desc: ['+AllTrim(aPedidos[i,5])+'] prunit ['+cValToChar(aPedidos[i,6])+'] quantidade: ['+cValToChar(aPedidos[i,7])+'] um: ['+AllTrim(aPedidos[i,8])+'] vlrtot: ['+cValToChar(aPedidos[i,9])+']'  + _Enter
+				MemoWrite("\po_log\getPedidos.log",_txtproc)
+				//MemoWrite("c:\temp\getPedidos.log",_txtproc)
+			Next i 
+		EndIf
+
+	Else
+
+		_txtproc += 'Itacolomy - getPedidos() - REQUEST DE PEDIDOS ...'+ _Enter
+		ConOut('Itacolomy - getPedidos() - REQUEST DE PEDIDOS ...')
+
+		TCSetField("pedidos","C5_EMISSAO","D",08,00)
+		TCSetField("pedidos","ID","N",10,00)
+
+		//TCSetField("pedidos","VALOR_TOTAL","N",TamSX3("C6_VALOR")[1],TamSX3("C6_VALOR")[2]) 	
+		While pedidos->(!EoF())
+		    ConOut('Itacolomy - getPedidos() - pedidos->C5_NUM: ['+pedidos->C5_NUM+'] pedidos->C9_BLCRED: ['+pedidos->C9_BLCRED+'] ...')
+			If Empty(pedidos->C9_BLCRED) //.And. Empty(pedidos->C9_BLEST) 	//Pedido Liberado
+				cStatusPd := "OK"
+			Else
+				//If !Empty(pedidos->C9_BLCRED)					//Bloqueado por Crédito
+				//If ('01|02|03|04|05|09|XX' $ Alltrim( pedidos->C9_BLCRED ))
+				//If ('01|02|03|04|05|09' $ Alltrim( pedidos->C9_BLCRED ))
+				If Alltrim( pedidos->C9_BLCRED ) == '01' ;
+				  .Or. Alltrim( pedidos->C9_BLCRED ) == '02' ; 
+				  .Or. Alltrim( pedidos->C9_BLCRED ) == '03' ;
+				  .Or. Alltrim( pedidos->C9_BLCRED ) == '04' ;
+				  .Or. Alltrim( pedidos->C9_BLCRED ) == '05' ;
+				  .Or. Alltrim( pedidos->C9_BLCRED ) == '09'
+					cStatusPd := pedidos->C9_BLCRED
+				Else
+					cStatusPd := "XX"
+				EndIf
+				//ElseIf !Empty(pedidos->C9_BLEST)				//Bloqueado por Estoque
+				//	cStatusPd := pedidos->C9_BLEST
+				//EndIf
+			EndIf
+			ConOut('Itacolomy - getPedidos() - pedidos->C5_NUM: ['+pedidos->C5_NUM+'] cStatusPd: ['+cStatusPd+'] ...')
+			If aScan(aPedidos, { |x| x[3] == pedidos->C5_NUM }) == 0
+				_nVltTtPV := u_fGetTotPV(pedidos->C5_NUM,pedidos->C5_FILIAL) //Obtém o valor do saldo do pedido
+				_cNmeCli := Substr(pedidos->A1_NOME,1,35)
+				aAdd(aPedidos, { pedidos->ID				,;	//01
+								pedidos->C5_FILIAL			,;	//02
+								pedidos->C5_NUM				,;	//03
+								DTOC(pedidos->C5_EMISSAO) 	,;	//04
+								pedidos->C5_CLIENTE	    	,;	//05
+								pedidos->C5_LOJACLI     	,;  //06
+								_cNmeCli 					,;	//07
+								cStatusPd					,; 	//08
+								_nVltTtPV					,;	//09
+								pedidos->C5_VEND1			,;	//10
+								pedidos->C5_CONDPAG			})	//11
+				_txtproc += 'Itacolomy - getPedidos() - pedidos->ID: ['+cValToChar(pedidos->ID)+'] pedidos->C5_FILIAL: ['+pedidos->C5_FILIAL+'] pedidos->C5_NUM ['+pedidos->C5_NUM+'] pedidos->C5_EMISSAO: ['+DTOC(pedidos->C5_EMISSAO)+'] pedidos->C5_CLIENTE: ['+pedidos->C5_CLIENTE+'] pedidos->C5_LOJACLI: ['+pedidos->C5_LOJACLI+'] pedidos->A1_NOME: ['+pedidos->A1_NOME+'] cStatusPd: ['+cStatusPd+'] _nVltTtPV: ['+cValToChar(_nVltTtPV)+']'  + _Enter
+				ConOut('Itacolomy - getPedidos() - pedidos->ID: ['+cValToChar(pedidos->ID)+'] pedidos->C5_FILIAL: ['+pedidos->C5_FILIAL+'] pedidos->C5_NUM ['+pedidos->C5_NUM+'] pedidos->C5_EMISSAO: ['+DTOC(pedidos->C5_EMISSAO)+'] pedidos->C5_CLIENTE: ['+pedidos->C5_CLIENTE+'] pedidos->C5_LOJACLI: ['+pedidos->C5_LOJACLI+'] pedidos->A1_NOME: ['+pedidos->A1_NOME+'] cStatusPd: ['+cStatusPd+'] _nVltTtPV: ['+cValToChar(_nVltTtPV)+']')
+			EndIf
+			pedidos->(DbSkip())
+		End
+		_cTxtLog := "Quantidade de Registros de aPedidos: ["+cValToChar(Len(aPedidos))+"]"
+		ConOut("Itacolomy - Quantidade de Registros de aPedidos: ["+cValToChar(Len(aPedidos))+"]")
+		MemoWrite("\po_log\getPedidos_qtd_pedidos.log",_cTxtLog) //Ita - 14/09/2024
+		MemoWrite("c:\temp\getPedidos_qtd_pedidos.log",_cTxtLog)
+		_txtproc += 'Itacolomy - getPedidos() - Vou montar o JSON  COM ['+cValToChar(Len(aPedidos))+'] Pedidos'+ _Enter
+		cPicVlr := PesqPict("SC6","C6_VALOR")
+		If Len(aPedidos) > 0
+			::jResponse["pedidos"] := Array(Len(aPedidos))
+			For i := 1 to Len(aPedidos)
+				::jResponse["pedidos"][i]             := JsonObject():new()
+				::jResponse["pedidos"][i]["id"]       := aPedidos[i,1]
+				::jResponse["pedidos"][i]["filial"]   := AllTrim(aPedidos[i,2])
+				::jResponse["pedidos"][i]["num"]   	  := AllTrim(aPedidos[i,3])
+				::jResponse["pedidos"][i]["emissao"]  := aPedidos[i,4]
+				::jResponse["pedidos"][i]["codigo"]   := AllTrim(aPedidos[i,5])
+				::jResponse["pedidos"][i]["loja"]     := AllTrim(aPedidos[i,6])
+				::jResponse["pedidos"][i]["nome"]     := AllTrim(EncodeUTF8(aPedidos[i,7]))
+				::jResponse["pedidos"][i]["statpv"]   := AllTrim(aPedidos[i,8])
+				::jResponse["pedidos"][i]["valor"]    := aPedidos[i,9] //Transform(aPedidos[i,9],cPicVlr)
+				::jResponse["pedidos"][i]["vendedor"] := aPedidos[i,10]
+				::jResponse["pedidos"][i]["condpgto"] := aPedidos[i,11]
+				
+				_txtproc += 'Itacolomy - getPedidos() - JSON Item: ['+cValToChar(i)+'] filial: ['+AllTrim(aPedidos[i,2])+'] num ['+AllTrim(aPedidos[i,3])+'] emissao: ['+aPedidos[i,4]+'] codigo: ['+AllTrim(aPedidos[i,5])+'] loja: ['+AllTrim(aPedidos[i,6])+'] nome: ['+AllTrim(aPedidos[i,7])+'] statpv: ['+AllTrim(aPedidos[i,8])+'] valor: ['+cValToChar(aPedidos[i,9])+']'  + _Enter
+				ConOut('Itacolomy - getPedidos() - JSON Item: ['+cValToChar(i)+'] filial: ['+AllTrim(aPedidos[i,2])+'] num ['+AllTrim(aPedidos[i,3])+'] emissao: ['+aPedidos[i,4]+'] codigo: ['+AllTrim(aPedidos[i,5])+'] loja: ['+AllTrim(aPedidos[i,6])+'] nome: ['+AllTrim(aPedidos[i,7])+'] statpv: ['+AllTrim(aPedidos[i,8])+'] valor: ['+cValToChar(aPedidos[i,9])+']')
+			Next i 
+		EndIf
+
+	EndIf
+
+	pedidos->(DbCloseArea())
+	
+	_txtproc += 'Itacolomy - getPedidos() - Return ::jResponse'  + _Enter
+	ConOut('Itacolomy - getPedidos() - Return ::jResponse')
+	MemoWrite("\po_log\getPedidos.log",_txtproc)
+	MemoWrite("c:\temp\getPedidos.log",_txtproc)
+
+Return ::jResponse
+
+Method getDatCli(codigo as Character, loja as Character, statpv as Character)  as Json Class Bokusapi
+	Local cQuery          as Character
+	Local i               as Numeric
+	Local _txtproc        as Character
+	Local _Enter := chr(13) + Chr(10)
+	
+	::jResponse["informacoes"]    := JsonObject():New()
+	_txtproc := ""
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getDatCli() - codigo: ["+codigo+"], loja: ["+loja+"], statpv: ["+statpv+"]")
+
+	cQuery += " SELECT SA1.A1_COD, SA1.A1_LOJA, SA1.A1_NOME, SA1.A1_CGC,SA1.A1_INSCR,  " + _Enter
+	cQuery += "        SA1.A1_TEL, SA1.A1_COND, SA1.A1_EMAIL,SA1.A1_FAX, SA1.A1_SATIV1,  " + _Enter
+	cQuery += "        '' A1_CEL, '' A1_CEL2, SA1.A1_VEND, SA1.A1_LC, SA1.R_E_C_N_O_ RECSA1,  " + _Enter
+	cQuery += "        SA1.A1_NREDUZ " + _Enter
+	cQuery += "   FROM "+RetSQLName("SA1")+" SA1 " + _Enter
+	cQuery += "  WHERE SA1.A1_FILIAL = '"+FWxFilial("SA1")+"' " + _Enter
+	cQuery += "    AND SA1.A1_COD = '"+codigo+"' " + _Enter
+	cQuery += "    AND SA1.A1_LOJA = '"+loja+"' " + _Enter
+	cQuery += "    AND SA1.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("\po_log\getDatCli.SQL",cQuery) //Ita - 03/09/2024
+	MemoWrite("C:\TEMP\getDatCli.SQL",cQuery)
+
+	MpSysOpenQuery(cQuery, "cliente")
+
+	TCSetField("cliente","A1_LC","N",TamSX3("A1_LC")[1],TamSX3("A1_LC")[2])
+	TCSetField("cliente","RECSA1","N",10,00)
+
+	aClientes := {}
+
+	While cliente->(!EoF())
+		aAdd(aClientes, { 	cliente->A1_COD		,;	//01
+							cliente->A1_LOJA	,; 	//02
+							cliente->A1_NOME	,;	//03
+							cliente->A1_CGC		,;	//04
+							cliente->A1_INSCR	,; 	//05
+							cliente->A1_TEL		,;	//06
+							cliente->A1_COND	,;	//07
+							cliente->A1_EMAIL	,;	//08
+							cliente->A1_FAX		,;	//09
+							cliente->A1_SATIV1	,;	//10
+							cliente->A1_CEL		,;	//11
+							cliente->A1_CEL2	,;	//12
+							cliente->A1_VEND	,;	//13
+							cliente->A1_LC		,;  //14
+							cValToChar(cliente->RECSA1),; //15
+							cliente->A1_NREDUZ     })	//16
+		cliente->(DbSkip())
+	End
+	/*
+	aBloqueios := {}
+    aAdd(aBloqueios, {'OK','AUTORIZADO'}) 
+    aAdd(aBloqueios, {'01','Crédito por Valor'})
+    aAdd(aBloqueios, {'02','risco de crédito'})
+    aAdd(aBloqueios, {'03','limite de crédito'})
+    aAdd(aBloqueios, {'04','atraso de título'})
+    aAdd(aBloqueios, {'05','bloqueio diretoria'})
+	aAdd(aBloqueios, {'09','Lib.Crédito Rejeitada'})
+	aAdd(aBloqueios, {'XX','bloqueio outros'})
+
+	nPosBlq := aScan(aBloqueios,{|x| x[1] == statpv })
+	cDscBloq := aBloqueios[nPosBlq,2]
+	*/
+	cDscBloq := u_fGtDscBlq( Alltrim( statpv ) )
+	cPicLC   := PesqPict("SA1","A1_LC")
+	cPicVlr  := PesqPict("SC6","C6_VALOR")
+	cPicTit  := PesqPict("SE1","E1_SALDO")
+
+	If Len(aClientes) > 0
+		::jResponse["informacoes"] := Array(Len(aClientes))
+		For i := 1 to Len(aClientes)
+			
+			xArea := GetArea() 
+			cDscCnd  := Posicione("SE4",1,FWxFilial("SE4")+PadR(aClientes[i,7],TamSX3("E4_CODIGO")[1]),"E4_DESCRI")
+			_cDscSeg := u_fGetSeg(aClientes[i,10])	
+			_cDscVend := Posicione("SA3",1,FWxFilial("SA3")+PadR(aClientes[i,13],TamSX3("A3_COD")[1]),"A3_NOME")
+			_nQtdTit := u_fQTitAbt(aClientes[i,1],aClientes[i,2],1)
+			_nTitAbt := u_fQTitAbt(aClientes[i,1],aClientes[i,2],2)
+			_n15Venc := u_fVencAbt(aClientes[i,1],aClientes[i,2],1)
+			_n16Venc := u_fVencAbt(aClientes[i,1],aClientes[i,2],2)
+			_nPdAfat := u_fPedAFat(aClientes[i,1],aClientes[i,2])
+			_nSldLim := u_fSaldLC(aClientes[i,1],aClientes[i,2])
+			RestArea(xArea)
+			
+			::jResponse["informacoes"][i]  := JsonObject():new()
+			::jResponse["informacoes"][i]["codCli"]	   := AllTrim(aClientes[i,1])
+			::jResponse["informacoes"][i]["lojCli"]    := AllTrim(aClientes[i,2])
+			::jResponse["informacoes"][i]["nomeCli"]   := AllTrim(EncodeUTF8(aClientes[i,3]))
+			::jResponse["informacoes"][i]["cnpjCli"]   := AllTrim(aClientes[i,4])
+			::jResponse["informacoes"][i]["inscCli"]   := AllTrim(aClientes[i,5])
+			::jResponse["informacoes"][i]["codblq"]    := statpv
+			::jResponse["informacoes"][i]["descblq"]   := EncodeUTF8(cDscBloq)
+			::jResponse["informacoes"][i]["tel"]       := AllTrim(aClientes[i,6])
+			::jResponse["informacoes"][i]["codcnd"]    := AllTrim(aClientes[i,7]) 
+			::jResponse["informacoes"][i]["desccnd"]   := EncodeUTF8(cDscCnd) 
+			::jResponse["informacoes"][i]["tel2"]      := AllTrim(aClientes[i,6])
+			::jResponse["informacoes"][i]["email"]     := AllTrim(aClientes[i,8])
+			::jResponse["informacoes"][i]["fax"]       := AllTrim(aClientes[i,9])
+			::jResponse["informacoes"][i]["vaz"]       := ''
+			::jResponse["informacoes"][i]["fax2"]      := AllTrim(aClientes[i,9])
+			::jResponse["informacoes"][i]["codseg"]    := AllTrim(aClientes[i,10])
+			::jResponse["informacoes"][i]["descseg"]   := EncodeUTF8(_cDscSeg)
+			::jResponse["informacoes"][i]["cel"]       := AllTrim(aClientes[i,11]) 
+			::jResponse["informacoes"][i]["cel2"]      := AllTrim(aClientes[i,12]) 
+			::jResponse["informacoes"][i]["vendpir"]   := AllTrim(aClientes[i,13])
+			::jResponse["informacoes"][i]["descvend"]  := EncodeUTF8(_cDscVend)
+			::jResponse["informacoes"][i]["qtdtit"]    := _nQtdTit
+			::jResponse["informacoes"][i]["titaberto"] := Transform(_nTitAbt,cPicTit)
+			::jResponse["informacoes"][i]["venc15"]    := Transform(_n15Venc,cPicTit)
+			::jResponse["informacoes"][i]["venc16"]    := Transform(_n16Venc,cPicTit)
+			::jResponse["informacoes"][i]["limcred"]   := Transform(aClientes[i,14],cPicLC)
+			::jResponse["informacoes"][i]["pedfat"]    := Transform(_nPdAfat,cPicVlr)
+			::jResponse["informacoes"][i]["saldolim"]  := Transform(_nSldLim,cPicLC) 
+			::jResponse["informacoes"][i]["regsa1"]    := aClientes[i,15]
+			::jResponse["informacoes"][i]["fanta"]     := EncodeUTF8(aClientes[i,16])
+
+			_txtproc += 'Itacolomy - getDatCli() - codCli: ['+AllTrim(aClientes[i,1])+'] lojCli: ['+AllTrim(aClientes[i,2])+'] nomeCli: ['+AllTrim(aClientes[i,3])+'] regsa1: ['+aClientes[i,15]+']'  + _Enter 
+		
+		Next
+
+	EndIf
+
+	cliente->(DbCloseArea())
+
+	_txtproc += 'Itacolomy - getDatCli() - Return ::jResponse'  + _Enter
+	MemoWrite("\po_log\getDatCli.log",_txtproc)
+	MemoWrite("c:\temp\getDatCli.log",_txtproc)
+
+Return ::jResponse
+
+Method getTitAbt(codigo as Character, loja as Character, filialpv as Character )  as Json Class Bokusapi
+	Local cQuery          as Character
+	Local i               as Numeric
+	Local _Enter := chr(13) + Chr(10)
+	
+	::jResponse["titulos"]    := JsonObject():New()
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getTitAbt() - codigo: ["+codigo+"], loja: ["+loja+"] filialpv: ["+filialpv+"]")
+
+    cQuery += " SELECT SE1.E1_FILIAL, SE1.E1_EMISSAO, SE1.E1_PREFIXO, SE1.E1_NUM, SE1.E1_PARCELA, " + _Enter 
+	cQuery += "        SE1.E1_TIPO,SE1.E1_VALOR,SE1.E1_SALDO,SE1.E1_VENCREA " + _Enter
+    cQuery += "   FROM "+RetSQLName("SE1")+" SE1 " + _Enter
+    //cQuery += "  WHERE SE1.E1_FILIAL = '"+FWxFilial("SE1")+"'" + _Enter
+	cQuery += "  WHERE SE1.E1_FILIAL = '"+filialpv+"'" + _Enter
+    cQuery += "    AND SE1.E1_CLIENTE = '"+codigo+"'" + _Enter
+    cQuery += "    AND SE1.E1_LOJA = '"+loja+"'"  + _Enter
+    cQuery += "    AND SE1.E1_SALDO > 0 " + _Enter
+    cQuery += "    AND SE1.E1_TIPO NOT IN ('NCC','NDC') " + _Enter
+    cQuery += "    AND SE1.D_E_L_E_T_ <> '*'" + _Enter
+
+    MemoWrite("\po_log\fTitAbt.SQL",cQuery)
+    MemoWrite("c:\temp\fTitAbt.SQL",cQuery)    
+	
+	cAlias := "titabertos"
+	cLifeTime := "240"
+	aSetField := {}
+	cTimeOut := "120"
+
+	FwExecCachedQuery():OpenQuery( cQuery , cAlias, /*aSetField*/ , /*cDrive*/ , cLifeTime , cTimeOut )
+
+    TCSetField("titabertos","E1_VALOR","N",TamSX3("E1_VALOR")[1],TamSX3("E1_VALOR")[2]) 
+    TCSetField("titabertos","E1_SALDO","N",TamSX3("E1_SALDO")[1],TamSX3("E1_SALDO")[2]) 
+	TCSetField("titabertos","E1_EMISSAO","D",08,00) 
+    TCSetField("titabertos","E1_VENCREA","D",08,00) 
+	aTitAbt := {}
+
+	While titabertos->(!EoF())
+		aAdd(aTitAbt, { 	titabertos->E1_FILIAL			,;	//01
+							titabertos->E1_PREFIXO			,; 	//02
+							titabertos->E1_NUM				,;	//03
+							titabertos->E1_PARCELA			,;	//04
+							titabertos->E1_TIPO				,; 	//05
+							titabertos->E1_VALOR			,;	//06
+							titabertos->E1_SALDO			,;	//07
+							DTOC(titabertos->E1_VENCREA)	,;	//08
+							DTOC(titabertos->E1_EMISSAO)	})	//09
+		titabertos->(DbSkip())
+	EndDo
+
+	titabertos->(DbCloseArea())
+	cPicTit  := PesqPict("SE1","E1_SALDO")
+	If Len(aTitAbt) > 0
+		::jResponse["titulos"] := Array(Len(aTitAbt))
+		For i := 1 to Len(aTitAbt)
+			
+			::jResponse["titulos"][i]  := JsonObject():new()
+			::jResponse["titulos"][i]["filial"]	   	:= AllTrim(aTitAbt[i,1])
+			::jResponse["titulos"][i]["prefixo"]    := AllTrim(aTitAbt[i,2])
+			::jResponse["titulos"][i]["num"]   		:= AllTrim(aTitAbt[i,3])
+			::jResponse["titulos"][i]["parcela"]   	:= AllTrim(aTitAbt[i,4])
+			::jResponse["titulos"][i]["tipo"]   	:= AllTrim(aTitAbt[i,5])
+			::jResponse["titulos"][i]["valor"]    	:= aTitAbt[i,6] //Transform(aTitAbt[i,6],cPicTit)
+			::jResponse["titulos"][i]["saldo"]   	:= aTitAbt[i,7] //Transform(aTitAbt[i,7],cPicTit)
+			::jResponse["titulos"][i]["vencrea"]   	:= aTitAbt[i,8]
+			::jResponse["titulos"][i]["emissao"]   	:= aTitAbt[i,9]
+
+		Next i
+
+	EndIf	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getTitAbt() Return ::jResponse")
+Return ::jResponse
+
+Method getTitLiq(codigo as Character, loja as Character, filialpv as Character )  as Json Class Bokusapi
+	Local cQuery          as Character
+	Local i               as Numeric
+	Local _Enter := chr(13) + Chr(10)
+	
+	::jResponse["titliq"]    := JsonObject():New()
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getTitLiq() - codigo: ["+codigo+"], loja: ["+loja+"] filialpv: ["+filialpv+"]")
+
+    cQuery += " SELECT SE1.E1_FILIAL, SE1.E1_EMISSAO,SE1.E1_PREFIXO, SE1.E1_NUM, SE1.E1_PARCELA, " + _Enter
+	cQuery += "        SE1.E1_TIPO,SE1.E1_VENCREA," + _Enter
+    cQuery += "        (SELECT SUM(SE5.E5_VALOR) " + _Enter
+	cQuery += "           FROM "+RetSQLName("SE5")+" SE5 " + _Enter
+	//cQuery += "          WHERE SE5.E5_FILIAL = '"+FWxFilial("SE5")+"' " + _Enter
+	cQuery += "          WHERE SE5.E5_FILIAL = '"+filialpv+"' " + _Enter
+	cQuery += "            AND SE5.E5_PREFIXO = SE1.E1_PREFIXO " + _Enter
+	cQuery += "            AND SE5.E5_NUMERO = SE1.E1_NUM " + _Enter
+	cQuery += "            AND SE5.E5_PARCELA = SE1.E1_PARCELA " + _Enter
+	cQuery += "            AND SE5.E5_TIPO = SE1.E1_TIPO " + _Enter
+	cQuery += "            AND SE5.E5_CLIFOR = SE1.E1_CLIENTE " + _Enter
+	cQuery += "            AND SE5.E5_LOJA = SE1.E1_LOJA " + _Enter
+	cQuery += "            AND (SELECT COUNT(*) " + _Enter
+	cQuery += "                   FROM "+RetSQLName("SE5")+" TMP " + _Enter
+	//cQuery += "                  WHERE TMP.E5_FILIAL = '"+xFilial("SE5")+"'" + _Enter
+	cQuery += "                  WHERE TMP.E5_FILIAL = SE5.E5_FILIAL" + _Enter
+	cQuery += "                    AND TMP.E5_FILIAL = SE5.E5_FILIAL " + _Enter
+	cQuery += "                    AND TMP.E5_PREFIXO = SE5.E5_PREFIXO " + _Enter
+	cQuery += "                    AND TMP.E5_NUMERO = SE5.E5_NUMERO " + _Enter
+	cQuery += "                    AND TMP.E5_PARCELA = SE5.E5_PARCELA " + _Enter
+	cQuery += "                    AND TMP.E5_TIPO = SE5.E5_TIPO " + _Enter
+	cQuery += "                    AND TMP.E5_CLIFOR = SE5.E5_CLIFOR " + _Enter
+	cQuery += "                    AND TMP.E5_LOJA = SE5.E5_LOJA " + _Enter
+	cQuery += "                    AND TMP.E5_VALOR = SE5.E5_VALOR " + _Enter
+	cQuery += "                    AND TMP.E5_SEQ = SE5.E5_SEQ " + _Enter
+	cQuery += "                    AND TMP.E5_TIPODOC = 'ES' " + _Enter
+	cQuery += "                    AND TMP.D_E_L_E_T_ <> '*') = 0 " + _Enter
+	cQuery += "            AND SE5.D_E_L_E_T_ <> '*') E5_VALOR " + _Enter
+    cQuery += "   FROM "+RetSQLName("SE1")+" SE1 " + _Enter
+    //cQuery += "  WHERE SE1.E1_FILIAL = '"+FWxFilial("SE1")+"'" + _Enter
+	cQuery += "  WHERE SE1.E1_FILIAL = '"+filialpv+"'" + _Enter
+    cQuery += "    AND SE1.E1_CLIENTE = '"+codigo+"'" + _Enter
+    cQuery += "    AND SE1.E1_LOJA = '"+loja+"'"  + _Enter
+    cQuery += "    AND SE1.E1_SALDO = 0 " + _Enter
+    cQuery += "    AND SE1.E1_TIPO NOT IN ('NCC','NDC') " + _Enter
+    cQuery += "    AND SE1.D_E_L_E_T_ <> '*'" + _Enter
+
+    MemoWrite("\po_log\getTitLiq.SQL",cQuery)
+    MemoWrite("c:\temp\getTitLiq.SQL",cQuery)    
+	
+	cAlias := "titbaixados"
+	cLifeTime := "240"
+	aSetField := {}
+	cTimeOut := "120"
+
+	FwExecCachedQuery():OpenQuery( cQuery , cAlias, /*aSetField*/ , /*cDrive*/ , cLifeTime , cTimeOut )
+
+    TCSetField("titbaixados","E5_VALOR","N",TamSX3("E5_VALOR")[1],TamSX3("E5_VALOR")[2]) 
+    TCSetField("titbaixados","E1_EMISSAO","D",08,00)
+	TCSetField("titbaixados","E1_VENCREA","D",08,00)
+
+	aTitLiq := {}
+
+	While titbaixados->(!EoF())
+		dUlBaixa := u_fUltBaixa(titbaixados->E1_PREFIXO,titbaixados->E1_NUM,titbaixados->E1_PARCELA,titbaixados->E1_TIPO,filialpv)
+		aAdd(aTitLiq, { 	titbaixados->E1_FILIAL			,;	//01
+							DTOC(titbaixados->E1_EMISSAO)	,; 	//02
+							titbaixados->E1_PREFIXO			,; 	//03
+							titbaixados->E1_NUM				,;	//04
+							titbaixados->E1_PARCELA			,;	//05
+							titbaixados->E1_TIPO			,; 	//06
+							DTOC(dUlBaixa)					,; 	//07
+							titbaixados->E5_VALOR			})	//08
+		titbaixados->(DbSkip())
+	EndDo
+
+	titbaixados->(DbCloseArea())
+	cPicBx  := PesqPict("SE5","E5_VALOR")
+	If Len(aTitLiq) > 0
+		::jResponse["titliq"] := Array(Len(aTitLiq))
+		For i := 1 to Len(aTitLiq)
+			
+			::jResponse["titliq"][i]  := JsonObject():new()
+			::jResponse["titliq"][i]["filial"]	   	:= AllTrim(aTitLiq[i,1])
+			::jResponse["titliq"][i]["emissao"]	   	:= aTitLiq[i,2]
+			::jResponse["titliq"][i]["prefixo"]    	:= AllTrim(aTitLiq[i,3])
+			::jResponse["titliq"][i]["num"]   		:= AllTrim(aTitLiq[i,4])
+			::jResponse["titliq"][i]["parcela"]   	:= AllTrim(aTitLiq[i,5])
+			::jResponse["titliq"][i]["tipo"]   		:= AllTrim(aTitLiq[i,6])
+			::jResponse["titliq"][i]["baixa"]   	:= aTitLiq[i,7]
+			::jResponse["titliq"][i]["valor"]    	:= aTitLiq[i,8] //Transform(aTitLiq[i,8],cPicBx)
+			
+
+		Next i
+
+	EndIf	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getTitLiq() Return ::jResponse")
+Return ::jResponse
+
+Method callPosicao(codigo as Character, loja as Character ) as Json Class Bokusapi
+	
+	Local cQuery          as Character
+	Local i               as Numeric
+	Local _txtproc        as Character
+	Local _Enter := chr(13) + Chr(10)
+	Local nI              as Numeric
+
+	//ConOut('Itacolomy - callPosicao() regsa1:['+regsa1+'] ...')
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method callPosicao() - codigo: ["+codigo+"] loja: ["+loja+"]")
+
+	//::jResponse["poscli"] := JsonObject():New()
+	_txtproc := ""
+	/*
+	nregsa1 := Val( regsa1 )
+	DbSelectArea("SA1")
+	DbGoTo(nregsa1)
+	*/
+	cQuery += " SELECT  SA1.A1_LC,SA1.A1_PRICOM, SA1.A1_ULTCOM, SA1.A1_LCFIN,  " + _Enter
+	cQuery += "         SA1.A1_MATR, SA1.A1_MCOMPRA, SA1.A1_RISCO, SA1.A1_MSALDO,  " + _Enter
+	cQuery += "         SA1.A1_SALFIN, SA1.A1_SALDUPM, SA1.R_E_C_N_O_ RECSA1, SA1.A1_METR  " + _Enter
+	cQuery += "   FROM "+RetSQLName("SA1")+" SA1 " + _Enter
+	cQuery += "  WHERE SA1.A1_FILIAL = '"+FWxFilial("SA1")+"' " + _Enter
+	cQuery += "    AND SA1.A1_COD = '"+codigo+"' " + _Enter
+	cQuery += "    AND SA1.A1_LOJA = '"+loja+"' " + _Enter
+	cQuery += "    AND SA1.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("\po_log\callPosicao.SQL",cQuery) //Ita - 03/09/2024
+	MemoWrite("C:\TEMP\callPosicao.SQL",cQuery)
+
+	MpSysOpenQuery(cQuery, "sa1pos")
+
+	TCSetField("sa1pos","A1_LC","N",TamSX3("A1_LC")[1],TamSX3("A1_LC")[2])
+	TCSetField("sa1pos","A1_PRICOM","D",08,00)
+	TCSetField("sa1pos","A1_ULTCOM","D",08,00)
+	TCSetField("sa1pos","A1_LCFIN","N",TamSX3("A1_LCFIN")[1],TamSX3("A1_LCFIN")[2])
+	TCSetField("sa1pos","A1_MATR","N",TamSX3("A1_MATR")[1],TamSX3("A1_MATR")[2])
+	TCSetField("sa1pos","A1_MCOMPRA","N",TamSX3("A1_MCOMPRA")[1],TamSX3("A1_MCOMPRA")[2])
+	TCSetField("sa1pos","A1_MSALDO","N",TamSX3("A1_MSALDO")[1],TamSX3("A1_MSALDO")[2])
+	TCSetField("sa1pos","A1_SALFIN","N",TamSX3("A1_SALFIN")[1],TamSX3("A1_SALFIN")[2])
+	TCSetField("sa1pos","A1_METR","N",TamSX3("A1_METR")[1],TamSX3("A1_METR")[2])
+	TCSetField("sa1pos","A1_SALDUPM","N",TamSX3("A1_SALDUPM")[1],TamSX3("A1_SALDUPM")[2])
+	TCSetField("sa1pos","RECSA1","N",10,00)	
+
+	aPsClient := {}
+	
+	While sa1pos->(!EoF())
+		aAdd(aPsClient, { 	sa1pos->A1_LC		,;  //01
+							sa1pos->A1_PRICOM	,; 	//02
+							sa1pos->A1_ULTCOM	,;	//03
+							sa1pos->A1_LCFIN    ,;	//04
+							sa1pos->A1_MATR	    ,; 	//05
+							sa1pos->A1_MCOMPRA	,;	//06
+							sa1pos->A1_RISCO	,;	//07
+							sa1pos->A1_MSALDO	,;	//08
+							sa1pos->A1_SALFIN	,;	//09
+							sa1pos->A1_METR	    ,;	//10
+							sa1pos->A1_SALDUPM	,;  //11
+							cValToChar(sa1pos->RECSA1)     })	//12
+		sa1pos->(DbSkip())
+	EndDo
+	sa1pos->(DbCloseArea())	
+
+                /*
+                aCoord := {}
+                Aadd(aCoord,JsonObject():New())
+                nPsCoor := Len(aCoord)
+                aCoord[nPsCoor]['latitude'] := cLatEmp
+                aCoord[nPsCoor]['longitude'] := cLongEmp
+                */
+
+	cPicLC   	:= PesqPict("SA1","A1_LC")
+	cPcFiLC   	:= PesqPict("SA1","A1_LCFIN")
+	cPicMC   	:= PesqPict("SA1","A1_MCOMPRA")
+	cPicMC   	:= PesqPict("SA1","A1_MSALDO")
+	cPicSF   	:= PesqPict("SA1","A1_SALFIN")
+	cPicSDP     := PesqPict("SA1","A1_SALDUPM")
+	cPicMAT     := PesqPict("SA1","A1_METR")
+	cPcMAtr     := PesqPict("SA1","A1_MATR")
+
+	::jResponse["poscli"] := JsonObject():New()
+	::jResponse["poscli"]["dados"] := Array(6) //Array(Len(aPsClient))
+	
+	If Len(aPsClient) > 0
+		For i := 1 to Len(aPsClient)
+			
+			For nI := 1 To 6
+				If nI == 1
+					
+					::jResponse["poscli"]["dados"][nI] := JsonObject():new()
+					::jResponse["poscli"]["dados"][nI]["descr"]	  := 'Limite Credito'
+					::jResponse["poscli"]["dados"][nI]["valor"]     := Transform(aPsClient[i,1],cPicLC)
+					::jResponse["poscli"]["dados"][nI]["valrea"]    := Transform(aPsClient[i,1],cPicLC)
+					::jResponse["poscli"]["dados"][nI]["space"]     := ' '
+					::jResponse["poscli"]["dados"][nI]["desc2"]     := 'Primeira Compra'
+					::jResponse["poscli"]["dados"][nI]["conpos"]    := DTOC(aPsClient[i,2])
+					_txtproc += 'Itacolomy - callPosicao() - Limite Crédito: ['+cValToChar(aPsClient[i,1])+'] Primeira Compra: ['+DTOC(aPsClient[i,2])+']'  + _Enter 
+					ConOut('Itacolomy - callPosicao() - Limite Crédito: ['+cValToChar(aPsClient[i,1])+'] Primeira Compra: ['+DTOC(aPsClient[i,2])+']')
+				ElseIf nI == 2
+					::jResponse["poscli"]["dados"][nI] := JsonObject():new()
+					::jResponse["poscli"]["dados"][nI]["descr"]	  := 'Saldo Historico'
+					::jResponse["poscli"]["dados"][nI]["valor"]     := Transform(aPsClient[i,11],cPicSDP)
+					::jResponse["poscli"]["dados"][nI]["valrea"]    := Transform(aPsClient[i,11],cPicSDP)
+					::jResponse["poscli"]["dados"][nI]["space"]     := ' '
+					::jResponse["poscli"]["dados"][nI]["desc2"]     := 'Ultima Compra'
+					::jResponse["poscli"]["dados"][nI]["conpos"]    := DTOC(aPsClient[i,3])	
+					_txtproc += 'Itacolomy - callPosicao() - Saldo Histórico: ['+cValToChar(aPsClient[i,11])+'] Última Compra: ['+DTOC(aPsClient[i,3])+']'  + _Enter 		
+					ConOut('Itacolomy - callPosicao() - Saldo Histórico: ['+cValToChar(aPsClient[i,11])+'] Última Compra: ['+DTOC(aPsClient[i,3])+']')
+				ElseIf nI == 3
+					::jResponse["poscli"]["dados"][nI] := JsonObject():new()
+					::jResponse["poscli"]["dados"][nI]["descr"]	  := 'Li Cred Sec'
+					::jResponse["poscli"]["dados"][nI]["valor"]     := Transform(aPsClient[i,4],cPcFiLC)
+					::jResponse["poscli"]["dados"][nI]["valrea"]    := Transform(aPsClient[i,4],cPcFiLC)
+					::jResponse["poscli"]["dados"][nI]["space"]     := ' '
+					::jResponse["poscli"]["dados"][nI]["desc2"]     := 'Maior Atraso'
+					::jResponse["poscli"]["dados"][nI]["conpos"]    := Transform(aPsClient[i,5],cPcMAtr)	
+					_txtproc += 'Itacolomy - callPosicao() - Li Cred Sec: ['+cValToChar(aPsClient[i,4])+'] Maior Atraso: ['+cValToChar(aPsClient[i,5])+']'  + _Enter 		
+					ConOut('Itacolomy - callPosicao() - Li Cred Sec: ['+cValToChar(aPsClient[i,4])+'] Maior Atraso: ['+cValToChar(aPsClient[i,5])+']')
+				ElseIf nI == 4
+					::jResponse["poscli"]["dados"][nI] := JsonObject():new()
+					::jResponse["poscli"]["dados"][nI]["descr"]	  := 'Saldo LC Sec'
+					::jResponse["poscli"]["dados"][nI]["valor"]     := Transform(aPsClient[i,9],cPicSF)
+					::jResponse["poscli"]["dados"][nI]["valrea"]    := Transform(aPsClient[i,9],cPicSF)
+					::jResponse["poscli"]["dados"][nI]["space"]     := ' '
+					::jResponse["poscli"]["dados"][nI]["desc2"]     := 'Media Atraso'
+					::jResponse["poscli"]["dados"][nI]["conpos"]    := Transform(aPsClient[i,10],cPicMAT)
+					_txtproc += 'Itacolomy - callPosicao() - Saldo LC Sec: ['+cValToChar(aPsClient[i,9])+'] Média Atraso: ['+cValToChar(aPsClient[i,10])+']'  + _Enter 			
+					ConOut('Itacolomy - callPosicao() - Saldo LC Sec: ['+cValToChar(aPsClient[i,9])+'] Média Atraso: ['+cValToChar(aPsClient[i,10])+']')
+				ElseIf nI == 5
+					::jResponse["poscli"]["dados"][nI] := JsonObject():new()
+					::jResponse["poscli"]["dados"][nI]["descr"]	  := 'Maior Compra'
+					::jResponse["poscli"]["dados"][nI]["valor"]     := Transform(aPsClient[i,6],cPicMC)
+					::jResponse["poscli"]["dados"][nI]["valrea"]    := Transform(aPsClient[i,6],cPicMC)
+					::jResponse["poscli"]["dados"][nI]["space"]     := ' '
+					::jResponse["poscli"]["dados"][nI]["desc2"]     := 'Grau de Risco'
+					::jResponse["poscli"]["dados"][nI]["conpos"]    := aPsClient[i,7]	
+					_txtproc += 'Itacolomy - callPosicao() - Maior Compra: ['+cValToChar(aPsClient[i,6])+'] Grau de Risco: ['+aPsClient[i,7]+']'  + _Enter 			
+					ConOut('Itacolomy - callPosicao() - Maior Compra: ['+cValToChar(aPsClient[i,6])+'] Grau de Risco: ['+aPsClient[i,7]+']')
+				ElseIf nI == 6
+					::jResponse["poscli"]["dados"][nI] := JsonObject():new()
+					::jResponse["poscli"]["dados"][nI]["descr"]	  := 'Maior Saldo'
+					::jResponse["poscli"]["dados"][nI]["valor"]     := Transform(aPsClient[i,8],cPicMC)
+					::jResponse["poscli"]["dados"][nI]["valrea"]    := Transform(aPsClient[i,8],cPicMC)
+					::jResponse["poscli"]["dados"][nI]["space"]     := ' '
+					::jResponse["poscli"]["dados"][nI]["desc2"]     := ' '
+					::jResponse["poscli"]["dados"][nI]["conpos"]    := ' '
+					_txtproc += 'Itacolomy - callPosicao() - Maior Saldo: ['+cValToChar(aPsClient[i,8])+']'  + _Enter 				
+					ConOut('Itacolomy - callPosicao() - Maior Saldo: ['+cValToChar(aPsClient[i,8])+']')
+				EndIf
+				
+			Next nI
+
+			
+		
+		Next i
+
+	EndIf
+
+	_txtproc += 'Itacolomy - callPosicao() - Return ::jResponse'  + _Enter
+	MemoWrite("\po_log\callPosicao.log",_txtproc)
+	MemoWrite("c:\temp\callPosicao.log",_txtproc)	
+
+ConOut('Itacolomy - callPosicao() - Return ::jResponse')
+Return ::jResponse
+
+Method getRefSaldo(regsa1 as Character ) as Json Class Bokusapi
+	Local lDireto as Logical
+	Local nGoSA1 as Numeric
+	Local i      as Numeric 
+		
+	ConOut('Itacolomy - getRefSaldo() regsa1:['+regsa1+'] ...')
+	lDireto := .T.  //Permite excutar o processo refaz dados em forma de Job(Sem interface visual)
+	nGoSA1 := Val( regsa1 )
+	DbSelectArea("SA1")
+	DbGoTo(nGoSA1)
+	//Preencho os parâmetros para eviar erro de execução interno da da Fina410
+	mv_par01 := 2  								//Refaz Dados de ? - 1=Ambos,2=Cliente, 3=Fornecedor
+	mv_par02 := 1  								//Recalcular Dados Historicos ? 1=Sim,2=Nao
+	mv_par03 := SA1->A1_COD  					//Do Cliente ?
+	mv_par04 := SA1->A1_COD  					//Ate Cliente ?
+	mv_par05 := SPACE(TamSX3("A2_COD")[1])		//Do Fornecedor ?
+	mv_par06 := Repl("z",TamSX3("A2_COD")[1])	//Ate Fornecedor ?
+
+	Fina410(lDireto) //"Refaz Dados Clientes/Fornecedores"
+
+	::jResponse["cliref"] := JsonObject():new()
+	::jResponse["cliref"] := Array(1) //Array(Len(aPsClient))
+	For i := 1 To 1
+		::jResponse["cliref"][i] := JsonObject():new()	
+		::jResponse["cliref"][i]["cliente"] 	:= SA1->A1_COD
+		::jResponse["cliref"][i]["loja"]    	:= SA1->A1_LOJA
+		::jResponse["cliref"][i]["nome"]    	:= Alltrim( EncodeUTF8(SA1->A1_NOME) )
+		::jResponse["cliref"][i]["fantasia"]	:= Alltrim( EncodeUTF8(SA1->A1_NREDUZ) )
+	Next i
+	ConOut('Itacolomy - getRefSaldo() Concluido Recalculo de Saldos do registro ==> regsa1:['+regsa1+'] Cliente ==> SA1->A1_COD: ['+SA1->A1_COD+'] SA1->A1_LOJA['+SA1->A1_LOJA+'] SA1->A1_NOME: ['+Alltrim( SA1->A1_NOME )+'] SA1->A1_NREDUZ: ['+SA1->A1_NREDUZ+']...')
+	ConOut('Itacolomy - getRefSaldo() - Return ::jResponse')
+Return ::jResponse
+
+Method libCredPV(pedido as Character, cliente as Character, lAutoLib as Character, statpv as Character, filialpv as Character ) as Json Class Bokusapi
+	
+	Local i as Numeric
+	Local _lLibPV as Logical
+
+	_lLibPV := .F.
+	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method libCredPV() - pedido: ["+pedido+"] filialpv: ["+filialpv+"]")
+	/*
+	nPosArot := 2  		//Posição da Rotina na MATA450 = 1=A450LibMan - "Manual",2=A450LibAut - "Automática"
+	lAutomato := .T. 	//Informa a execução em Job da MATA450
+	MATA450( nPosArot, lAutomato )
+	*/
+	If lAutoLib == "1"
+		/////////////////////////////////////////////////////////////
+		/// Ita - Liberaçao Automatica do Crédito do Pedido de Vendas
+		///       Parâmetros
+		///       Grupo: LIBAUT
+		mv_par01 := pedido						//01 - Pedido de ?
+		mv_par02 :=	pedido						//02 - Pedido ate ?
+		mv_par03 := cliente 					//03 - Cliente de ?
+		mv_par04 :=	cliente						//04 - Cliente ate ?
+		mv_par05 := CTOD("")//CTOD('01/01/1999')//05 - Data de Entrega de ?
+		mv_par06 :=	CTOD('31/12/2049')			//06 - Data de Entrega ate ?
+		lAutomato := .T. 	//Informa a execução em Job da A450LibAut()
+		aArea   := GetArea()
+		//A450LibAut( lAutomato, statpv )
+		//
+		//Function Ma450Proces(cAlias    , lAvCred   , lAvEst    , lEnd      , lEmpresa  , lAvWMS    , lLogMsg)
+		//_lLibPV := Ma450Proces( "SC9", .T., .F. ) //Rotina Padrão
+		aRetLib := u_fUpdSC9(pedido,filialpv)
+		_lLibPV := aRetLib[1]
+		_MsgErro := aRetLib[2]
+
+		If _lLibPV
+			_lLibPV := u_fChkSC9(pedido,filialpv) //Ita - 08/10/2024 - Verifica se todo o SC9 foi liberado.
+			If _lLibPV
+				u_fSavHisLib(pedido,statpv,filialpv) //Ita - 01/10/2024 - Salva o Histórico da Liberação
+			EndIf
+		EndIf 
+		RestArea(aArea)
+	Else
+		/////////////////////////////////////////////////////////////
+		/// Ita - Liberaçao Automatica do Crédito do Pedido de Vendas
+		///       Parâmetros
+		///       Grupo: MTA451
+		/*
+		nRecSC5 := u_getC5Rec(pedido)
+		nRecSC9 := u_getC9Rec(pedido)
+		DbSelectArea("SC5")
+		DbGoTo(nRecSC5)
+		DbSelectArea("SC9")
+		DbGoTo(nRecSC9)
+		mv_par01 := 1						//01 - Somente Bloqueados ? 1=Sim,2=Nao
+		lAutomato := .T. 	//Informa a execução em Job da A450LibAut()
+		*/
+		//Comentado pois este processo tem interface visual e não pode ser executado via API.
+		//A450LibMan( lAutomato, statpv )
+	EndIf
+
+	::jResponse["libped"] := JsonObject():new()
+	::jResponse["libped"] := Array(1) //Array(Len(aPsClient))
+	For i := 1 To 1
+		::jResponse["libped"][i] := JsonObject():new()
+		::jResponse["libped"][i]["pedido"] 	:= pedido
+		::jResponse["libped"][i]["msgerr"] 	:= EncodeUTF8(_MsgErro)
+		::jResponse["libped"][i]["filial"] 	:= filialpv
+		If _lLibPV	
+			::jResponse["libped"][i]["liberou"] := "S"
+		Else
+			::jResponse["libped"][i]["liberou"] := "N"
+		EndIf
+	Next i
+	ConOut('Itacolomy - libCredPV() Concluido Liberação de Crédito do Pedido: ['+pedido+']')
+	ConOut('Itacolomy - libCredPV() - Return ::jResponse')
+Return ::jResponse
+
+Method libCliCred(pedido as Character, cliente as Character, lAutoLib as Character, statpv as Character, filialpv as Character ) as Json Class Bokusapi
+	
+	Local i as Numeric
+	Local _liberou as Logical
+
+	_liberou := .F.
+	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method libCliCred() - pedido: ["+pedido+"] cliente: ["+cliente+"] lAutoLib: ["+lAutoLib+"] statpv: ["+statpv+"] filialpv:["+filialpv+"]")
+
+	If lAutoLib == "1"
+		////////////////////////////////////////////////////////////////////////
+		/// Ita - Liberaçao Automatica do Crédito do Cliente do Pedido de Vendas
+		///       Parâmetros
+		///       Grupo: LIBAUT
+		mv_par01 := pedido						//01 - Pedido de ?
+		mv_par02 :=	pedido						//02 - Pedido ate ?
+		mv_par03 := cliente 					//03 - Cliente de ?
+		mv_par04 :=	cliente						//04 - Cliente ate ?
+		mv_par05 := CTOD('01/01/1999')			//05 - Data de Entrega de ?
+		mv_par06 :=	CTOD('31/12/2049')			//06 - Data de Entrega ate ?
+		lAutomato := .T. 	//Informa a execução em Job da A450LibAut()
+		//Rotina Padrão TOTVS: A450LibAut
+		//u_M450ClAut( lAutomato,pedido,cliente, statpv ) 
+		//Chamada da Rotina Padrão TOTVS - Ma450Proces( "SC9", .T., .F. )
+		//_liberou := u_f450Proces("SC9",.T.,.F.)
+		aRetLib := u_fUpdSC9(pedido,filialpv)
+		_liberou := aRetLib[1]
+		_MsgErro := aRetLib[2]
+		If _liberou
+			//u_fSavHisLib(pedido,statpv) //Ita - 01/10/2024 - Salva o Histórico da Liberação
+			_liberou := u_fChkSC9(pedido) //Ita - 08/10/2024 - Verifica se todo o SC9 foi liberado.
+			If _liberou
+				ConOut("Itacolomy - Processando Method libCliCred() - LIBEROU pedido: ["+pedido+"] cliente: ["+cliente+"] lAutoLib: ["+lAutoLib+"] statpv: ["+statpv+"]")
+				u_fSavHisLib(pedido,statpv,filialpv) //Ita - 01/10/2024 - Salva o Histórico da Liberação
+			Else
+				ConOut("Itacolomy - Processando Method libCliCred() - NAO CONSEGUIU LIBERAR O pedido: ["+pedido+"] cliente: ["+cliente+"] lAutoLib: ["+lAutoLib+"] statpv: ["+statpv+"]")		
+			EndIf
+			
+		Else
+			ConOut("Itacolomy - Processando Method libCliCred() - NAO CONSEGUIU LIBERAR O pedido: ["+pedido+"] cliente: ["+cliente+"] lAutoLib: ["+lAutoLib+"] statpv: ["+statpv+"]")		
+		EndIf		
+	Else
+		/////////////////////////////////////////////////////////////
+		/// Ita - Liberaçao Automatica do Crédito do Pedido de Vendas
+		///       Parâmetros
+		///       Grupo: MTA451
+		/*
+		nRecSC5 := u_getC5Rec(pedido)
+		nRecSC9 := u_getC9Rec(pedido)
+		DbSelectArea("SC5")
+		DbGoTo(nRecSC5)
+		DbSelectArea("SC9")
+		DbGoTo(nRecSC9)
+		mv_par01 := 1						//01 - Somente Bloqueados ? 1=Sim,2=Nao
+		lAutomato := .T. 	//Informa a execução em Job da A450LibAut()
+		*/
+		//Rotina Padrão TOTVS: A450LibMan
+		//Comentado pois este processo tem interface visual e não pode ser executado via API.
+		//u_M450ClMan( lAutomato )
+	EndIf
+
+	::jResponse["libcli"] := JsonObject():new()
+	::jResponse["libcli"] := Array(1) //Array(Len(aPsClient))
+	For i := 1 To 1
+		::jResponse["libcli"][i] := JsonObject():new()	
+		::jResponse["libcli"][i]["pedido"] 	:= pedido
+		::jResponse["libcli"][i]["cliente"] := cliente
+		::jResponse["libcli"][i]["msgerr"] 	:= EncodeUTF8(_MsgErro)
+		::jResponse["libcli"][i]["filial"] 	:= filialpv
+		If _liberou
+			::jResponse["libcli"][i]["liberou"] := "S"
+		Else
+			::jResponse["libcli"][i]["liberou"] := "N"
+		EndIf
+	Next i
+	ConOut('Itacolomy - libCliCred() Concluido Liberação de Crédito do Cliente: ['+cliente+'] Pedido: ['+pedido+']')
+	ConOut('Itacolomy - libCliCred() - Return ::jResponse')
+Return ::jResponse
+
+Method deletePV(pedido as Character, filialpv as Character) as Json Class Bokusapi
+	
+	Local i as Numeric
+	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method deletePV() - pedido: ["+pedido+"] filialpv: ["+filialpv+"]")
+    aDelPV := u_DelPedido( pedido, filialpv ) 
+	lDelPV := If(aDelPV[1],.T.,.F.)
+	lEliResi := If(aDelPV[2],.T.,.F.)   
+	::jResponse["delped"] := JsonObject():new()
+	::jResponse["delped"] := Array(1) //Array(Len(aPsClient))
+	_cMsgFim := ''
+	For i := 1 To 1
+		::jResponse["delped"][i] := JsonObject():new()	
+		If lDelPV
+			::jResponse["delped"][i]["operacao"] := 'pedido ['+pedido+'] excluido'
+			::jResponse["delped"][i]["filial"] := filialpv
+			_cMsgFim := 'pedido ['+pedido+'] excluido na filial:['+filialpv+']'
+		Else
+			If lEliResi
+				::jResponse["delped"][i]["operacao"] := 'eliminou residuo e encerrou pedido ['+pedido+'] na filial:['+filialpv+']'
+				::jResponse["delped"][i]["filial"] := filialpv
+				_cMsgFim := 'eliminou residuo e encerrou pedido ['+pedido+'] na filial:['+filialpv+']'
+			Else
+				//::jResponse["delped"][i]["operacao"] := 'ocorreu erro na tentativa de exclusao do pedido ['+pedido+']'
+				//_cMsgFim := 'ocorreu erro na tentativa de exclusao do pedido ['+pedido+']'
+				::jResponse["delped"][i]["operacao"] := 'ocorreu erro na tentativa de eliminar residuo do pedido ['+pedido+'] na filial:['+filialpv+'] O pedido nao pode esta liberado.'
+				::jResponse["delped"][i]["filial"] := filialpv
+				_cMsgFim := 'ocorreu erro na tentativa de eliminar residuo do pedido ['+pedido+'] na filial:['+filialpv+'] O pedido nao pode esta liberado.'
+			EndIf	
+		EndIf
+	Next i
+	ConOut('Itacolomy - deletePV() Concluido '+_cMsgFim)
+	ConOut('Itacolomy - deletePV() - Return ::jResponse')
+Return ::jResponse
+
+Method getHistLib(codusu as Character) as Json Class Bokusapi
+	Local cQuery          as Character
+	Local i               as Numeric
+	Local _Enter := chr(13) + Chr(10)
+	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method getHistLib() - codusu: ["+codusu+"]")
+
+    cQuery += " SELECT ZZ1.ZZ1_FILIAL, ZZ1_CODUSU, ZZ1_NMEUSU,ZZ1_PEDIDO,ZZ1_DTLIB,ZZ1_HRLIB, " + _Enter
+	cQuery += "        ZZ1_BLQLIB,ZZ1_DSCBLQ " + _Enter
+	cQuery += "   FROM "+RetSQLName("ZZ1")+" ZZ1 " + _Enter
+	//cQuery += "  WHERE ZZ1.ZZ1_FILIAL = '"+FWxFilial("ZZ1")+"' " + _Enter
+	//cQuery += "    AND ZZ1.ZZ1_CODUSU = '"+codusu+"'" + _Enter
+	//cQuery += "    AND ZZ1.D_E_L_E_T_ <> '*'" + _Enter
+	//cQuery += "    " + _Enter
+	cQuery += "  WHERE ZZ1.D_E_L_E_T_ <> '*'" + _Enter
+
+	MemoWrite("\po_log\getHistLib.SQL",cQuery) //Ita - 03/09/2024
+	MemoWrite("C:\TEMP\getHistLib.SQL",cQuery)
+
+	//MpSysOpenQuery(cQuery, "historic")
+	cAlias := "historic"
+	cLifeTime := "240"
+	aSetField := {}
+	cTimeOut := "120"
+	FwExecCachedQuery():OpenQuery( cQuery , cAlias, /*aSetField*/ , /*cDrive*/ , cLifeTime , cTimeOut )
+	
+	TCSetField("historic","ZZ1_DTLIB","D",08,00)
+	
+	aHistorlib     := {}	
+	DbSelectArea("historic")
+	While historic->(!Eof())
+		aAdd(aHistorlib, {							 ;
+							historic->ZZ1_CODUSU	,; 		//01
+							historic->ZZ1_NMEUSU	,;		//02
+							historic->ZZ1_PEDIDO	,;		//03
+							historic->ZZ1_DTLIB		,;		//04
+							historic->ZZ1_HRLIB		,;		//05
+							historic->ZZ1_BLQLIB	,;		//06
+							historic->ZZ1_DSCBLQ	,;      //07
+							historic->ZZ1_FILIAL    })		//08
+		DbSelectArea("historic")
+		DbSkip()
+	EndDo
+	DbSelectArea("historic")
+	DbCloseArea()
+	::jResponse["histlib"] := JsonObject():New()
+	::jResponse["histlib"] := Array(Len(aHistorlib))	
+	
+	For i := 1 To Len(aHistorlib)
+		::jResponse["histlib"][i] := JsonObject():New() 
+		::jResponse["histlib"][i]["filial"] := aHistorlib[i,8]
+		::jResponse["histlib"][i]["codusu"] := aHistorlib[i,1]
+		::jResponse["histlib"][i]["nmeusu"] := Alltrim( EncodeUTF8(aHistorlib[i,2]) )
+		::jResponse["histlib"][i]["pedido"] := aHistorlib[i,3]
+		::jResponse["histlib"][i]["dtlib"]  := DTOC(aHistorlib[i,4])
+		::jResponse["histlib"][i]["hrlib"]  := aHistorlib[i,5]
+		::jResponse["histlib"][i]["codblq"] := aHistorlib[i,6]
+		::jResponse["histlib"][i]["dscblq"] := EncodeUTF8(aHistorlib[i,7])
+	Next i
+ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Method getHistLib() - Return ::jResponse")
+Return ::jResponse
+
+
+Method callUsuProtheus() as Json Class Bokusapi
+	Local i               as Numeric
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Method callUsuProtheus()")
+	cUserID := RetCodUsr()				//Cod. do Usuario Protheus
+	cNameUsu := UsrRetName(cUserID)		//Nome do usuario Protheus
+	::jResponse["dadosusuario"] := JsonObject():New()
+	::jResponse["dadosusuario"] := Array(1)
+	For i := 1 To 1
+		::jResponse["dadosusuario"][i] := JsonObject():New()
+		::jResponse["dadosusuario"][i]["cod"] := cUserID
+		::jResponse["dadosusuario"][i]["nome"] := EncodeUTF8(cNameUsu) 
+	Next i
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Method callUsuProtheus() cUserID: ["+cUserID+"] cNameUsu: ["+cNameUsu+"]")
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Method callUsuProtheus() - Return ::jResponse")
+Return ::jResponse
+/*
+Method filtrarSolicitacoes(cDataDe as Character,cDataAte as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local aSolicitacoes   as Array
+	Local i               as Numeric
+	Local legenda         as Character
+	Local _Enter := chr(13) + Chr(10)
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method filtrarSolicitacoes()")
+	::jResponse["itens"]    := JsonObject():New()
+	
+	////////////////////////////////////////////////////////////////////////////////
+	/// Ita - 23/08/2024 - Melhoria de performance na consulta das tabelas Protheus
+	///                    Indice SC1 - C1_FILIAL+C1_NUM+C1_ITEM+C1_ITEMGRD
+
+	cQuery += " SELECT C1_NUM AS NUM, C1_ITEM AS ITEM, C1_PRODUTO AS PRODUTO, C1_DESCRI AS DESCR, " + _Enter
+	cQuery += "        C1_EMISSAO AS EMISSAO, C1_USER AS CODUSER, " + _Enter
+	cQuery += "        R_E_C_N_O_ AS ID, " + _Enter
+	cQuery += "        C1_UM AS UM, C1_QUANT AS QUANT, C1_COTACAO AS COTACAO, C1_FORNECE AS FORNECE, " + _Enter
+	cQuery += "        C1_LOJA AS LOJA, C1_CC AS CC, C1_LOCAL AS ARMAZEM, C1_OBS AS OBS " + _Enter
+	cQuery += "  FROM " + RetSqlName("SC1") + " SC1 " + _Enter
+	cQuery += " WHERE C1_FILIAL = '"+FWxFilial('SC1')+"' " + _Enter
+	cQuery += "   AND SC1.C1_EMISSAO BETWEEN '"+cDataDe+"' AND '"+cDataAte+"' " + _Enter
+	cQuery += "   AND SC1.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("filtrarSolicitacoes.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	aSolicitacoes     := {}
+
+	While solicitacoes->(!EoF())
+		aAdd(aSolicitacoes, { solicitacoes-> ID, solicitacoes->NUM, solicitacoes-> ITEM, solicitacoes-> PRODUTO,;
+			solicitacoes-> DESCR, solicitacoes->UM, solicitacoes->QUANT, solicitacoes-> COTACAO, solicitacoes-> FORNECE,;
+			solicitacoes-> CC, solicitacoes-> ARMAZEM, solicitacoes->EMISSAO , solicitacoes->CODUSER, solicitacoes->OBS, solicitacoes->loja })
+		solicitacoes->(DbSkip())
+	End
+
+	If Len(aSolicitacoes) > 0
+		::jResponse["itens"]["solicitacoes"] := Array(Len(aSolicitacoes))
+		For i := 1 to Len(aSolicitacoes)
+			If len(AllTrim(aSolicitacoes[i][8])) == 0 //nao tem cotacao
+				legenda := 'pendente'
+			Else
+				legenda := 'cotado'
+			EndIF
+			::jResponse["itens"]["solicitacoes"][i]  := JsonObject():new()
+			::jResponse["itens"]["solicitacoes"][i]["id"]         := aSolicitacoes[i,1]
+			::jResponse["itens"]["solicitacoes"][i]["num"]        := AllTrim(aSolicitacoes[i,2])
+			::jResponse["itens"]["solicitacoes"][i]["item"]   	  := AllTrim(aSolicitacoes[i,3])
+			::jResponse["itens"]["solicitacoes"][i]["produto"]    := AllTrim(aSolicitacoes[i,4])
+			::jResponse["itens"]["solicitacoes"][i]["desc"]       := AllTrim(aSolicitacoes[i,5])
+			::jResponse["itens"]["solicitacoes"][i]["unidade"]    := AllTrim(aSolicitacoes[i,6])
+			::jResponse["itens"]["solicitacoes"][i]["quantidade"] := aSolicitacoes[i,7]
+			::jResponse["itens"]["solicitacoes"][i]["cc"]         := AllTrim(aSolicitacoes[i,10])
+			::jResponse["itens"]["solicitacoes"][i]["armazem"]    := AllTrim(aSolicitacoes[i,11])
+			::jResponse["itens"]["solicitacoes"][i]["emissao"]    := StoD(aSolicitacoes[i,12])
+			::jResponse["itens"]["solicitacoes"][i]["usuario"]    := AllTrim(USRFULLNAME(aSolicitacoes[i,13]))
+			::jResponse["itens"]["solicitacoes"][i]["obs"]        := AllTrim(aSolicitacoes[i,14])
+			::jResponse["itens"]["solicitacoes"][i]["cnpjFor"]    := AllTrim(Posicione('SA2',1,FWxFilial('SA2')+aSolicitacoes[i,9]+aSolicitacoes[i,15],'A2_CGC'))
+			::jResponse["itens"]["solicitacoes"][i]["fornecedor"] := AllTrim(Posicione('SA2',1,FWxFilial('SA2')+aSolicitacoes[i,9]+aSolicitacoes[i,15],'A2_NOME'))
+			::jResponse["itens"]["solicitacoes"][i]["codFor"]     := AllTrim(aSolicitacoes[i,9])
+			::jResponse["itens"]["solicitacoes"][i]["loja"]       := AllTrim(aSolicitacoes[i,15])
+			::jResponse["itens"]["solicitacoes"][i]["legenda"]    := legenda
+		Next
+	EndIf
+
+	solicitacoes->(DbCloseArea())
+
+Return ::jResponse
+
+Method solicitacoes(cFiltro as Character, cCotado as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local cFilter         as Character
+	Local aSolicitacoes   as Array
+	Local aFiltro         as Array
+	Local i               as Numeric
+	Local legenda         as Character
+	Local _Enter := chr(13) + Chr(10)
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method solicitacoes()")
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cFilter := '('
+		aFiltro := Separa(cFiltro, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cFilter += "'"+aFiltro[i]+"', "
+			else
+				cFilter += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cFilter += ')'
+	EndIf
+
+	::jResponse["itens"]    := JsonObject():New()
+
+	cQuery += "SELECT C1_NUM AS NUM, C1_ITEM AS ITEM, C1_PRODUTO AS PRODUTO, " + _Enter
+	cQuery += "       C1_DESCRI AS DESCR, C1_EMISSAO AS EMISSAO, C1_USER AS CODUSER, " + _Enter
+	cQuery += "       R_E_C_N_O_ AS ID, " + _Enter
+	cQuery += "       C1_UM AS UM, C1_QUANT AS QUANT, C1_COTACAO AS COTACAO, " + _Enter
+	cQuery += "       C1_FORNECE AS FORNECE, C1_LOJA AS LOJA, C1_CC AS CC, " + _Enter
+	cQuery += "       C1_LOCAL AS ARMAZEM, C1_OBS AS OBS " + _Enter
+	cQuery += "  FROM " + RetSqlName("SC1") + " SC1" + _Enter
+	cQuery += " WHERE SC1.C1_FILIAL = '"+FWxFilial('SC1')+"' " + _Enter
+	cQuery += "   AND SC1.C1_EMISSAO BETWEEN '"+DtoS(MonthSub(dDataBase,6))+"' AND '"+DtoS(dDataBase)+"' " + _Enter
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND C1_NUM IN "+ cFilter  + " " + _Enter
+	EndIf
+	If !Empty(cCotado) .AND. cCotado <> 'null'
+		cQuery += " AND C1_COTACAO = ''" + _Enter
+	EndIf
+	
+	cQuery += "   AND SC1.D_E_L_E_T_ <> '*' " + _Enter
+	MemoWrite("solicitacoes.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	aSolicitacoes     := {}
+
+	While solicitacoes->(!EoF())
+		aAdd(aSolicitacoes, { solicitacoes-> ID, solicitacoes->NUM, solicitacoes-> ITEM, solicitacoes-> PRODUTO,;
+			solicitacoes-> DESCR, solicitacoes->UM, solicitacoes->QUANT, solicitacoes-> COTACAO, solicitacoes-> FORNECE,;
+			solicitacoes-> CC, solicitacoes-> ARMAZEM, solicitacoes->EMISSAO , solicitacoes->CODUSER, solicitacoes->OBS, solicitacoes->LOJA })
+		solicitacoes->(DbSkip())
+	End
+
+	If Len(aSolicitacoes) > 0
+		::jResponse["itens"]["solicitacoes"] := Array(Len(aSolicitacoes))
+		For i := 1 to Len(aSolicitacoes)
+			If len(AllTrim(aSolicitacoes[i][8])) == 0 //nao tem cotacao
+				legenda := 'pendente'
+			Else
+				legenda := 'cotado'
+			EndIF
+			::jResponse["itens"]["solicitacoes"][i]  := JsonObject():new()
+			::jResponse["itens"]["solicitacoes"][i]["id"]         := aSolicitacoes[i,1]
+			::jResponse["itens"]["solicitacoes"][i]["num"]        := AllTrim(aSolicitacoes[i,2])
+			::jResponse["itens"]["solicitacoes"][i]["item"]   	  := AllTrim(aSolicitacoes[i,3])
+			::jResponse["itens"]["solicitacoes"][i]["produto"]    := AllTrim(aSolicitacoes[i,4])
+			::jResponse["itens"]["solicitacoes"][i]["desc"]       := AllTrim(aSolicitacoes[i,5])
+			::jResponse["itens"]["solicitacoes"][i]["unidade"]    := AllTrim(aSolicitacoes[i,6])
+			::jResponse["itens"]["solicitacoes"][i]["quantidade"] := aSolicitacoes[i,7]
+			::jResponse["itens"]["solicitacoes"][i]["cc"]         := AllTrim(aSolicitacoes[i,10])
+			::jResponse["itens"]["solicitacoes"][i]["armazem"]    := AllTrim(aSolicitacoes[i,11])
+			::jResponse["itens"]["solicitacoes"][i]["emissao"]    := StoD(aSolicitacoes[i,12])
+			::jResponse["itens"]["solicitacoes"][i]["usuario"]    := AllTrim(USRFULLNAME(aSolicitacoes[i,13]))
+			::jResponse["itens"]["solicitacoes"][i]["obs"]        := AllTrim(aSolicitacoes[i,14])
+			::jResponse["itens"]["solicitacoes"][i]["cnpjFor"]    := AllTrim(Posicione('SA2',1,FWxFilial('SA2')+aSolicitacoes[i,9]+aSolicitacoes[i,15],'A2_CGC'))
+			::jResponse["itens"]["solicitacoes"][i]["fornecedor"] := AllTrim(Posicione('SA2',1,FWxFilial('SA2')+aSolicitacoes[i,9]+aSolicitacoes[i,15],'A2_NOME'))
+			::jResponse["itens"]["solicitacoes"][i]["codFor"]     := AllTrim(aSolicitacoes[i,9])
+			::jResponse["itens"]["solicitacoes"][i]["loja"]       := AllTrim(aSolicitacoes[i,15])
+			::jResponse["itens"]["solicitacoes"][i]["legenda"]    := legenda
+		Next
+	EndIf
+
+	solicitacoes->(DbCloseArea())
+
+Return ::jResponse
+
+Method filtrarCotacoes(cDataDe as Character,cDataAte as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local aCotacoes       as Array
+	Local i               as Numeric
+	Local legenda         as Character
+	Local _Enter := chr(13) + Chr(10)
+
+	::jResponse["itens"]    := JsonObject():New()
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method filtrarCotacoes()")
+
+	cQuery += " SELECT C8_NUM AS NUM, C8_NUMSC AS NUMSC, C8_PRODUTO AS PRODUTO, C8_LOJA AS LOJA, " + _Enter
+	cQuery += "        R_E_C_N_O_ AS ID, " + _Enter
+	cQuery += "        C8_UM AS UM, C8_QUANT AS QUANT, C8_NUMPRO AS PROPOSTA, C8_FORNECE AS FORNECE C8_EMISSAO AS EMISSAO," + _Enter
+	cQuery += "        C8_PRECO AS PRECO, C8_PRAZO AS PRAZO, C8_ALIIPI AS IPI, C8_PICM AS ICMS,CAST(C8_OBS AS CHAR) AS OBS, C8_COND AS CONDICAO   " + _Enter
+	cQuery += "   FROM " + RetSqlName("SC8") + " SC8" + _Enter
+	cQuery += "  WHERE SC8.C8_FILIAL = '"+FWxFilial('SC8')+"' " + _Enter
+	cQuery += "    AND SC8.C8_EMISSAO BETWEEN '"+cDataDe+"' AND '"+cDataAte+"' " + _Enter
+	cQuery += "    AND SC8.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("filtrarCotacoes.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "cotacoes")
+
+	aCotacoes     := {}
+
+	While cotacoes->(!EoF())
+		aAdd(aCotacoes, { cotacoes->ID, cotacoes->NUM, cotacoes->NUMSC, cotacoes->PRODUTO,;
+			cotacoes->UM, cotacoes->QUANT,cotacoes->PROPOSTA, cotacoes->FORNECE, cotacoes->PRECO,;
+			cotacoes->LOJA, cotacoes->PRAZO, cotacoes->IPI, cotacoes->ICMS, cotacoes->OBS, cotacoes->EMISSAO, cotacoes->CONDICAO})
+		cotacoes->(DbSkip())
+	End
+
+	If Len(aCotacoes) > 0
+		::jResponse["itens"]["cotacoes"] := Array(Len(aCotacoes))
+		For i := 1 to Len(aCotacoes)
+			If aCotacoes[i][9] == 0 //nao proposta o preço é zero
+				legenda := 'pendente'
+			Else
+				legenda := 'analise'
+			EndIF
+			::jResponse["itens"]["cotacoes"][i]  := JsonObject():new()
+			::jResponse["itens"]["cotacoes"][i]["id"]         := aCotacoes[i,1]
+			::jResponse["itens"]["cotacoes"][i]["num"]        := AllTrim(aCotacoes[i,2])
+			::jResponse["itens"]["cotacoes"][i]["numSC"]   	  := AllTrim(aCotacoes[i,3])
+			::jResponse["itens"]["cotacoes"][i]["produto"]    := AllTrim(Posicione('SB1',1,FWxFilial('SB1')+aCotacoes[i,4],'B1_DESC'))
+			::jResponse["itens"]["cotacoes"][i]["unidade"]    := AllTrim(aCotacoes[i,5])
+			::jResponse["itens"]["cotacoes"][i]["quantidade"] := aCotacoes[i,6]
+			::jResponse["itens"]["cotacoes"][i]["proposta"]   := Alltrim(aCotacoes[i,7])
+			::jResponse["itens"]["cotacoes"][i]["fornecedor"] := Alltrim(Posicione('SA2',1,FWxFilial('SA2')+aCotacoes[i,8]+aCotacoes[i,10],'A2_NOME'))
+			::jResponse["itens"]["cotacoes"][i]["cnpjFor"]    := Alltrim(Posicione('SA2',1,FWxFilial('SA2')+aCotacoes[i,8]+aCotacoes[i,10],'A2_CGC'))
+			::jResponse["itens"]["cotacoes"][i]["preco"]      := aCotacoes[i,9]
+			::jResponse["itens"]["cotacoes"][i]["loja"]       := Alltrim(aCotacoes[i,10])
+			::jResponse["itens"]["cotacoes"][i]["legenda"]    := legenda
+			::jResponse["itens"]["cotacoes"][i]["prazo"]      := aCotacoes[i,11]
+			::jResponse["itens"]["cotacoes"][i]["ipi"]        := aCotacoes[i,12]
+			::jResponse["itens"]["cotacoes"][i]["icms"]       := aCotacoes[i,13]
+			::jResponse["itens"]["cotacoes"][i]["obs"]        := aCotacoes[i,14]
+			::jResponse["itens"]["cotacoes"][i]["emissao"]    := StoD(aCotacoes[i,15])
+			::jResponse["itens"]["cotacoes"][i]["condicao"]    := AllTrim(Posicione('SE4',1,FWxFilial('SE4')+aCotacoes[i,16],'E4_DESCRI'))
+
+		Next
+	EndIf
+
+	cotacoes->(DbCloseArea())
+
+Return ::jResponse
+
+Method cotacoes(cFiltro as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local cFilter         as Character
+	Local aCotacoes       as Array
+	Local aFiltro         as Array
+	Local i               as Numeric
+	Local legenda         as Character
+	Local _Enter := chr(13) + Chr(10)
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method cotacoes()")
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cFilter := '('
+		aFiltro := Separa(cFiltro, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cFilter += "'"+aFiltro[i]+"', "
+			else
+				cFilter += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cFilter += ')'
+	EndIf
+
+	::jResponse["itens"]    := JsonObject():New()
+
+	cQuery += " SELECT C8_NUM AS NUM, C8_NUMSC AS NUMSC, C8_PRODUTO AS PRODUTO, C8_LOJA AS LOJA, " + _Enter
+	cQuery += "        R_E_C_N_O_ AS ID, " + _Enter
+	cQuery += "        C8_UM AS UM, C8_QUANT AS QUANT, C8_NUMPRO AS PROPOSTA, C8_FORNECE AS FORNECE, C8_EMISSAO AS EMISSAO," + _Enter
+	cQuery += "        C8_PRECO AS PRECO, C8_PRAZO AS PRAZO, C8_ALIIPI AS IPI, C8_PICM AS ICMS, CAST(C8_OBS AS CHAR) AS OBS, C8_COND AS CONDICAO  " + _Enter
+	cQuery += "   FROM " + RetSqlName("SC8") + " SC8" + _Enter
+	cQuery += "  WHERE SC8.C8_FILIAL = '"+FWxFilial('SC8')+"' " + _Enter
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND C8_NUM IN "+ cFilter + " "  + _Enter
+	EndIf
+	cQuery += "    AND SC8.C8_EMISSAO BETWEEN '"+DtoS(MonthSub(dDataBase,6))+"' AND '"+DtoS(dDataBase)+"' " + _Enter
+	cQuery += "    AND SC8.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("cotacoes.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "cotacoes")
+
+	aCotacoes     := {}
+
+	While cotacoes->(!EOF())
+
+		aAdd(aCotacoes, { cotacoes-> ID, cotacoes->NUM, cotacoes->NUMSC, cotacoes-> PRODUTO,;
+			cotacoes->UM, cotacoes->QUANT,cotacoes->PROPOSTA, cotacoes-> FORNECE, cotacoes->PRECO,;
+			cotacoes-> LOJA, cotacoes-> PRAZO, cotacoes-> IPI, cotacoes-> ICMS, cotacoes-> OBS, cotacoes-> EMISSAO, cotacoes->CONDICAO })
+		cotacoes->(DbSkip())
+	End
+
+	If Len(aCotacoes) > 0
+		::jResponse["itens"]["cotacoes"] := Array(Len(aCotacoes))
+		For i := 1 to Len(aCotacoes)
+			If aCotacoes[i][9] == 0 //nao proposta o preço é zero
+				legenda := 'pendente'
+			Else
+				legenda := 'analise'
+			EndIF
+			::jResponse["itens"]["cotacoes"][i]  := JsonObject():new()
+			::jResponse["itens"]["cotacoes"][i]["id"]         := aCotacoes[i,1]
+			::jResponse["itens"]["cotacoes"][i]["num"]        := AllTrim(aCotacoes[i,2])
+			::jResponse["itens"]["cotacoes"][i]["numSC"]   	  := AllTrim(aCotacoes[i,3])
+			::jResponse["itens"]["cotacoes"][i]["produto"]    := AllTrim(Posicione('SB1',1,FWxFilial('SB1')+aCotacoes[i,4],'B1_DESC'))
+			::jResponse["itens"]["cotacoes"][i]["unidade"]    := AllTrim(aCotacoes[i,5])
+			::jResponse["itens"]["cotacoes"][i]["quantidade"] := aCotacoes[i,6]
+			::jResponse["itens"]["cotacoes"][i]["proposta"]   := Alltrim(aCotacoes[i,7])
+			::jResponse["itens"]["cotacoes"][i]["fornecedor"] := Alltrim(Posicione('SA2',1,FWxFilial('SA2')+aCotacoes[i,8]+aCotacoes[i,10],'A2_NOME'))
+			::jResponse["itens"]["cotacoes"][i]["cnpjFor"]    := Alltrim(Posicione('SA2',1,FWxFilial('SA2')+aCotacoes[i,8]+aCotacoes[i,10],'A2_CGC'))
+			::jResponse["itens"]["cotacoes"][i]["preco"]      := aCotacoes[i,9]
+			::jResponse["itens"]["cotacoes"][i]["loja"]       := Alltrim(aCotacoes[i,10])
+			::jResponse["itens"]["cotacoes"][i]["legenda"]    := legenda
+			::jResponse["itens"]["cotacoes"][i]["prazo"]      := aCotacoes[i,11]
+			::jResponse["itens"]["cotacoes"][i]["ipi"]        := aCotacoes[i,12]
+			::jResponse["itens"]["cotacoes"][i]["icms"]       := aCotacoes[i,13]
+			::jResponse["itens"]["cotacoes"][i]["obs"]        := aCotacoes[i,14]
+			::jResponse["itens"]["cotacoes"][i]["emissao"]    := StoD(aCotacoes[i,15])
+			::jResponse["itens"]["cotacoes"][i]["condicao"]    := AllTrim(Posicione('SE4',1,FWxFilial('SE4')+aCotacoes[i,16],'E4_DESCRI'))
+
+		Next
+	EndIf
+
+	cotacoes->(DbCloseArea())
+
+Return ::jResponse
+
+Method fornecedoresAmarrados(cFiltro as Character, cCodigos as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local cFilter         as Character
+	Local aFornecedores   as Array
+	Local aFiltro         as Array
+	Local i               as Numeric
+	Local _Enter := chr(13) + Chr(10)
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method fornecedoresAmarrados()")
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cFilter := '('
+		aFiltro := Separa(cFiltro, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cFilter += "'"+aFiltro[i]+"', "
+			else
+				cFilter += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cFilter += ')'
+	EndIf
+
+	cQuery += "SELECT A5_PRODUTO AS PRODUTO, A2_COD AS FORNECEDOR, A2_LOJA AS LOJA, " + _Enter
+	cQuery += "       A2_NOME AS NOME " + _Enter
+	cQuery += "  FROM " + RetSqlName("SA2") + " SA2 " + _Enter
+	cQuery += "        LEFT JOIN " + RetSqlName("SA5") + " SA5 " + _Enter
+	cQuery += "               ON A5_LOJA=A2_LOJA AND A5_FORNECE=A2_COD " + _Enter
+	cQuery += "  WHERE A2_FILIAL = '"+FWxFilial('SA2')+"' " + _Enter
+	If !Empty(cCodigos) .AND. cCodigos <> 'null'
+		cQuery += "AND (A5_PRODUTO='"+cCodigos+"' OR A5_PRODUTO IS NULL) " + _Enter
+	EndIf
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND A2_NOME IN "+ cFilter + " "  + _Enter
+	EndIf
+	cQuery += " AND SA2.D_E_L_E_T_ <> '*' " + _Enter
+
+	cQuery += "ORDER BY A5_PRODUTO DESC " + _Enter
+
+	MemoWrite("fornecedoresAmarrados.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "fornecedores")
+
+	aFornecedores := {}
+
+	While fornecedores->(!EoF())
+		aAdd(aFornecedores, { fornecedores-> PRODUTO, fornecedores->FORNECEDOR, fornecedores-> LOJA, fornecedores-> NOME })
+		fornecedores->(DbSkip())
+	End
+
+
+	If Len(aFornecedores) > 0
+		::jResponse["items"] := Array(Len(aFornecedores))
+		For i := 1 to Len(aFornecedores)
+			::jResponse["items"][i]  := JsonObject():new()
+			::jResponse["items"][i]["produto"]     := AllTrim(aFornecedores[i,1])
+			::jResponse["items"][i]["fornecedor"]  := AllTrim(aFornecedores[i,2])
+			::jResponse["items"][i]["loja"]   	   := AllTrim(aFornecedores[i,3])
+			::jResponse["items"][i]["nome"]    	   := AllTrim(aFornecedores[i,4])
+			//::jResponse["items"][i]["produto"]     := AllTrim(aFornecedores[i,5])
+		Next
+	EndIf
+
+	fornecedores->(DbCloseArea())
+
+
+Return ::jResponse
+
+Method fornecedores(cFiltro as Character, cCGC as Character, cFornecedor as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local aFornecedores   as Array
+	//Local aFiltro         as Array
+	Local i               as Numeric
+	Local _Enter := chr(13) + Chr(10)
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method fornecedores()")
+
+	cQuery += "SELECT A2_COD AS FORNECEDOR, A2_LOJA AS LOJA, A2_NOME AS NOME, A2_CGC AS CGC, " + _Enter
+	cQuery += "       R_E_C_N_O_ AS ID  " + _Enter
+	cQuery += "  FROM " + RetSqlName("SA2") + " SA2 " + _Enter
+	cQuery += " WHERE A2_FILIAL = '"+FWxFilial('SA2')+"' " + _Enter
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND UPPER(A2_NOME) LIKE '%"+UPPER(cFiltro)+"%' " + _Enter
+	EndIf
+	If !Empty(cCGC) .AND. cCGC <> 'null'
+		cQuery += " AND A2_CGC LIKE '%"+cCGC+"%' " + _Enter
+	EndIf
+	If !Empty(cFornecedor) .AND. cFornecedor <> 'null'
+		cQuery += " AND A2_COD LIKE '%"+cFornecedor+"%' " + _Enter
+	EndIf
+	cQuery += "   AND SA2.D_E_L_E_T_ <> '*' " + _Enter
+	cQuery += " ORDER BY A2_COD " + _Enter
+	
+	MemoWrite("fornecedores.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "fornecedores")
+
+	aFornecedores := {}
+
+	While fornecedores->(!EoF())
+		aAdd(aFornecedores, { fornecedores-> ID, fornecedores->FORNECEDOR, fornecedores-> LOJA, fornecedores-> NOME, fornecedores-> CGC })
+		fornecedores->(DbSkip())
+	End
+
+
+	If Len(aFornecedores) > 0
+		::jResponse["items"] := Array(Len(aFornecedores))
+		For i := 1 to Len(aFornecedores)
+			::jResponse["items"][i]  := JsonObject():new()
+			::jResponse["items"][i]["id"]          := aFornecedores[i,1]
+			::jResponse["items"][i]["fornecedor"]  := AllTrim(aFornecedores[i,2])
+			::jResponse["items"][i]["loja"]   	   := AllTrim(aFornecedores[i,3])
+			::jResponse["items"][i]["nome"]    	   := AllTrim(aFornecedores[i,4])
+			::jResponse["items"][i]["cgc"]    	   := AllTrim(aFornecedores[i,5])
+		Next
+	EndIf
+
+	fornecedores->(DbCloseArea())
+
+
+Return ::jResponse
+
+//API CENTRO DE CUSTO
+Method centroCusto(cFiltro as Character, cCC as Character,cCodigo as Character) as Json Class Bokusapi
+
+	Local cQuery          as Character
+	Local aCC             as Array
+	//Local aFiltro         as Array
+	Local i               as Numeric
+	Local _Enter := chr(13) + Chr(10)
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method centroCusto()")
+	If !Empty(cCodigo) .AND. cCodigo <> 'null'
+
+		cQuery += " SELECT CTT_CUSTO AS CC, CTT_DESC01 AS descricao " + _Enter
+		cQuery += "  FROM " + RetSqlName("CTT") + " CTT " + _Enter
+		cQuery += " WHERE CTT_FILIAL = '"+FWxFilial('CTT')+"' " + _Enter
+		cQuery += "   AND CTT_CUSTO = '"+cCodigo+"' " + _Enter
+		cQuery += "   AND CTT.D_E_L_E_T_ <> '*' " + _Enter
+		cQuery += "   AND CTT_BLOQ = '2' " + _Enter
+
+		MemoWrite("centroCusto.SQL",cQuery) //Ita - 03/09/2024
+		MpSysOpenQuery(cQuery, "cc")
+		::jResponse["items"] :=  Array(1)
+		if cc->(!EoF())
+			::jResponse["items"][1]  := JsonObject():new()
+			::jResponse["items"][1]["CC"]         := AllTrim(cc->CC)
+			::jResponse["items"][1]["descricao"]  := AllTrim(EncodeUTF8(cc->descricao))
+		Else 
+			::jResponse["items"][1]  := JsonObject():new()
+			::jResponse["items"][1]["CC"]         := " "
+			::jResponse["items"][1]["descricao"]  := " "
+		EndIf
+	Else
+
+		cQuery += " SELECT CTT_DESC01 AS descricao, CTT_CUSTO AS CC " + _Enter
+		cQuery += "   FROM " + RetSqlName("CTT") + " CTT " + _Enter
+		cQuery += "  WHERE CTT_FILIAL = '"+FWxFilial('CTT')+"' " + _Enter
+		
+		If !Empty(cFiltro) .AND. cFiltro <> 'null'
+			cQuery += " AND UPPER(CTT_DESC01) LIKE '%"+UPPER(cFiltro)+"%' " + _Enter
+		EndIf
+		If !Empty(cCC) .AND. cCC <> 'null'
+			cQuery += " AND CTT_CUSTO LIKE '%"+cCC+"%' " + _Enter
+		EndIf
+
+		cQuery += "    AND CTT_BLOQ = '2' " + _Enter
+		cQuery += "    AND CTT.D_E_L_E_T_ <> '*' " + _Enter
+
+		cQuery += " ORDER BY CTT_CUSTO " + _Enter
+
+		MemoWrite("centroCusto2.SQL",cQuery) //Ita - 03/09/2024
+		MpSysOpenQuery(cQuery, "cc")
+
+		aCC := {}
+
+		While cc->(!EoF())
+			aAdd(aCC, { cc->CC, cc-> descricao })
+			cc->(DbSkip())
+		End
+
+
+		If Len(aCC) > 0
+			::jResponse["items"] := Array(Len(aCC))
+			For i := 1 to Len(aCC)
+				::jResponse["items"][i]  := JsonObject():new()
+				::jResponse["items"][i]["CC"]         := AllTrim(aCC[i,1])
+				::jResponse["items"][i]["descricao"]  := AllTrim(EncodeUTF8(aCC[i,2]))
+			Next
+		EndIf
+	EndIf
+	cc->(DbCloseArea())
+
+Return ::jResponse
+
+//API ARMAZÉM
+Method armazem(cFiltro as Character, cArmazem as Character, cCodigo as Character) as Json Class Bokusapi
+
+	Local cQuery     as Character
+	Local aArmazem   as Array
+	//Local aFiltro  as Array
+	Local i          as Numeric
+	Local _Enter := chr(13) + Chr(10)
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method armazem()")
+  	If !Empty(cCodigo) .AND. cCodigo <> 'null'
+
+		cQuery += "SELECT NNR_CODIGO AS COD, NNR_DESCRI AS descricao  " + _Enter
+		cQuery += "  FROM " + RetSqlName("NNR") + " NNR "  + _Enter
+		cQuery += " WHERE NNR_FILIAL = '"+FWxFilial('NNR')+"' " + _Enter
+		cQuery += "   AND NNR_CODIGO = '"+cCodigo+"'" + _Enter
+		cQuery += "   AND NNR.D_E_L_E_T_ <> '*' "   + _Enter
+
+		MemoWrite("armazem.SQL",cQuery) //Ita - 03/09/2024
+		MpSysOpenQuery(cQuery, "armazem") 
+
+		::jResponse["items"] := Array(1)
+		if armazem->(!EoF())
+		::jResponse["items"][1]  := JsonObject():new()
+		::jResponse["items"][1]["armazem"]    := AllTrim(armazem->COD)
+		::jResponse["items"][1]["descricao"]  := AllTrim(EncodeUTF8(armazem->descricao))
+		Else
+		::jResponse["items"][1]  := JsonObject():new()
+		::jResponse["items"][1]["armazem"]    := " "
+		::jResponse["items"][1]["descricao"]  := " "
+		EndIf
+	Else
+
+		cQuery += "SELECT NNR_DESCRI AS descricao, NNR_CODIGO AS COD " + _Enter
+		cQuery += "  FROM " + RetSqlName("NNR") + " NNR "  + _Enter
+		cQuery += " WHERE NNR_FILIAL = '"+FWxFilial('NNR')+"' " + _Enter
+		
+		If !Empty(cFiltro) .AND. cFiltro <> 'null'
+			cQuery += " AND UPPER(NNR_DESCRI) LIKE '%"+UPPER(cFiltro)+"%' " + _Enter
+		EndIf
+		If !Empty(cArmazem) .AND. cArmazem <> 'null'
+			cQuery += " AND NNR_CODIGO LIKE '%"+cArmazem+"%' " + _Enter
+		EndIf
+
+		cQuery += "   AND NNR.D_E_L_E_T_ <> '*' " + _Enter
+		cQuery += " ORDER BY NNR_CODIGO " + _Enter
+
+		MemoWrite("armazem2.SQL",cQuery) //Ita - 03/09/2024
+		MpSysOpenQuery(cQuery, "armazem") 
+
+		aArmazem := {}
+
+		While armazem->(!EoF())
+			aAdd(aArmazem, { armazem->COD, armazem-> descricao })
+			armazem->(DbSkip())
+		End
+		If Len(aArmazem) > 0
+			::jResponse["items"] := Array(Len(aArmazem))
+			For i := 1 to Len(aArmazem)
+				::jResponse["items"][i]  := JsonObject():new()
+				::jResponse["items"][i]["armazem"]    := AllTrim(aArmazem[i,1])
+				::jResponse["items"][i]["descricao"]  := AllTrim(EncodeUTF8(aArmazem[i,2]))
+			Next
+		EndIf
+	EndIf
+	armazem->(DbCloseArea())
+
+
+Return ::jResponse
+
+Method incluirSolicitacao(aBody as Array) as Json Class Bokusapi
+
+// 	Situação 1: somente os produtos  -> Faz a solicitação
+//	Situação 2: Produtos e fornecedores -> Faz a solicitação e cotação
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method incluirSolicitacao()")
+	ConOut("Itacolomy - Processando Method incluirSolicitacao() - Listando aBody ["+cValToChar(len(aBody))+"] Itens solicitados.")
+
+	Local aCabec         as Array
+	Local aLinha         as Array
+	Local aLinhas        as Array
+	Local aCotacao       as Array
+	Local aRet           as Character
+	Local cError 		 as Character
+	Local aDados         as Array
+	Local nX             as Numeric
+	Local cNumSol        as Character
+	Local nCount         as Numeric   //Ita - 16/09/2024
+	Local _Enter := chr(13) + Chr(10) //Ita - 16/09/2024
+	//Local cTemp          as Character
+	Private lMsHelpAuto  as Logical
+	Private lMsErroAuto  as Logical
+	Private lAutoErrNoFile  as Logical
+	//Local cotacao   as Logical
+	aLinhas := {}
+	lMsHelpAuto := .T.
+	lMsErroAuto := .F.
+	lAutoErrNoFile	:= .T.
+
+	aCotacao := {}
+	aDados := {}
+
+
+	::jResponse["message"]    := JsonObject():New()
+
+	cNumSol := GetSxeNum("SC1","C1_NUM")
+
+	aCabec := {{"C1_NUM",cNumSol,NIL},;
+		{"C1_SOLICIT",Alltrim(UsrRetName(__CUSERID)),NIL},;
+		{"C1_NOMAPRO",Alltrim(UsrRetName(__CUSERID)),NIL},;
+		{"C1_EMISSAO",dDataBase,NIL},;
+		{"C1_FILIAL",cFilAnt,NIL}}
+
+	for nX := 1 to len(aBody)
+		If !Empty(aBody[nX]['fornecedor']) //Se tem fornecedor
+			aAdd(aCotacao, {cNumSol, aBody[nX]['codigo'], aBody[nX]['fornecedor']})
+		EndIf
+		aLinha := {{"C1_ITEM", Padl(nX,4,'0'),Nil},;
+			{"C1_PRODUTO", aBody[nX]['codigo']  ,Nil},;
+			{"C1_QUANT"  , val(aBody[nX]['quantidade']), Nil},;
+			{"C1_CC"     , aBody[nX]['CC']     , Nil},; //Ita - 16/09/2024 - {"C1_CC"     , aBody[nX]['cc']     , Nil},;
+			{"C1_LOCAL"  , aBody[nX]['armazem'], Nil}}
+
+		aAdd(aLinhas,aLinha)
+	next nX
+
+	// Teste de Inclusao
+	MSExecAuto({|x,y,z| mata110(x,y,z)},aCabec,aLinhas,3)
+
+	If !lMsErroAuto
+		ConfirmSx8()
+
+		//se o array de cotação não estiver vazio eu chamo a cotação
+		If !Empty(aCotacao)
+			//Cotacao(cNumSol, aCotacao)
+			aRet := U_GeraCot(aCotacao)
+			If !Empty(aRet)
+				//U_sendwork(aRet)
+				::jResponse["message"] := 'Solicitacao : '+cNumSol+' e Cotacao : '+aRet+' Incluida com sucesso!'
+				::jResponse['code']    := 200
+			Else
+				::jResponse["message"] := 'Solicitacao : '+cNumSol+' Incluida com sucesso!'
+				::jResponse['code']    := 200
+			EndIf
+		Else
+			::jResponse["message"] := 'Solicitacao : '+cNumSol+' Incluida com sucesso!'
+			::jResponse['code']    := 200
+		EndIf
+
+		//MsgInfo("Solicitação de Compra do produto " + aBody[1,2] + " incluída com Sucesso!")
+	Else
+		cError := ''
+		aLogAuto := GetAutoGRLog()
+		cError += aLogAuto[1]
+		::jResponse["message"] := EncodeUTF8(cError)
+		::jResponse['code']    := 500
+		//MostraErro()
+		
+	EndIf
+
+Return ::jResponse
+
+
+Method copiarSolicitacao(aBody as Array) as Json Class Bokusapi
+
+// 	Situação 1: somente os produtos  -> Faz a solicitação
+//	Situação 2: Produtos e fornecedores -> Faz a solicitação e cotação
+
+	Local aCabec         as Array
+	Local aLinha         as Array
+	Local aLinhas        as Array
+	Local aFornece        as Array
+	Local aCotacao       as Array
+	Local aRet           as Character
+	Local cError 		 as Character
+	Local aDados         as Array
+	Local nX             as Numeric
+	Local cNumSol        as Character
+	Local cQuery         as Character
+	Local _Enter := chr(13) + Chr(10)
+	Private lMsHelpAuto  as Logical
+	Private lMsErroAuto  as Logical
+	Private lAutoErrNoFile  as Logical
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method copiarSolicitacao()")
+	//Local cotacao   as Logical
+	aLinhas := {}
+	lMsHelpAuto := .T.
+	lMsErroAuto := .F.
+	lAutoErrNoFile	:= .T.
+
+	aCotacao := {}
+	aDados := {}
+
+	::jResponse["message"]    := JsonObject():New()
+
+	cNumSol := GetSxeNum("SC1","C1_NUM")
+
+	cQuery += "SELECT * " + _Enter
+	cQuery += "  FROM " + RetSqlName("SC1") + " SC1 " + _Enter
+	cQuery += " WHERE C1_FILIAL = '"+FWxFilial('SC1')+"' " + _Enter
+	cQuery += "   AND C1_NUM = "+ aBody[1]['num'] +" "  + _Enter
+	cQuery += "   AND SC1.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("copiarSolicitacao.SQL",cQuery) //Ita - 03/09/2024
+
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	solicitacoes->(DbGoTop())
+	aCabec := {{"C1_FILIAL",solicitacoes->C1_FILIAL,NIL},;
+		{"C1_NUM",solicitacoes-> C1_NUM,NIL},;
+		{"C1_SOLICIT", solicitacoes->C1_SOLICIT,NIL},;
+		{"C1_EMISSAO",sToD(solicitacoes->C1_EMISSAO),NIL}}
+	//{"C1_FILENT",solicitacoes->C1_FILENT,NIL},;
+
+	DbSelectArea('SC1')
+	SC1->(DbSetOrder(1))
+	DbSelectArea('SC8')
+	SC8->(DbSetOrder(1))
+	for nX := 1 to len(aBody)
+		aFornece := {}
+		if SC8->(DbSeek(FWxFilial('SC8')+solicitacoes->C1_COTACAO+solicitacoes->C1_FORNECE+solicitacoes->C1_LOJA))
+			RecLock('SC8',.F.)
+			DbDelete()
+			SC8->(MsUnlock())
+		EndIf
+		if SC1->(DbSeek(FWxFilial('SC1')+Solicitacoes->C1_NUM+aBody[nx]['item']))
+			RecLock('SC1',.F.)
+			SC1->C1_COTACAO := ''
+			SC1->(MsUnlock())
+		EndIF
+		if aBody[nx]['codFor'] <> ''
+			aAdd(aFornece, {aBody[nX]['codFor'], aBody[nx]['loja']})
+		EndIF
+		if len(aFornece) > 0
+			aAdd(aCotacao, {solicitacoes->C1_NUM, aBody[nX]['codigo'], aFornece})
+		EndIf
+		aLinha := {{"C1_ITEM", Padl(nX,4,'0'),Nil},;
+			{"C1_PRODUTO", aBody[nX]['codigo']  ,Nil},;
+			{"C1_QUANT"  , aBody[nX]['quantidade'], Nil},;
+			{"C1_CC"     , aBody[nX]['cc']     , Nil},;
+			{"C1_LOCAL"  , aBody[nX]['armazem'], Nil}}
+
+		aAdd(aLinhas,aLinha)
+	next nX
+	// Teste de Inclusao
+	MSExecAuto({|x,y,z| mata110(x,y,z)},aCabec,aLinhas,4)
+
+	If !lMsErroAuto
+		ConfirmSx8()
+
+		//se o array de cotação não estiver vazio eu chamo a cotação
+		If !Empty(aCotacao)
+			//Cotacao(cNumSol, aCotacao)
+			aRet := U_GeraCot(aCotacao,'sim')
+			If !Empty(aRet)
+				//U_sendwork(aRet)
+				::jResponse["message"] := 'Solicitacao : '+solicitacoes-> C1_NUM+' e Cotacao : '+aRet+' Incluida com sucesso!'
+				::jResponse['code']    := 200
+			Else
+				::jResponse["message"] := 'Solicitacao : '+solicitacoes-> C1_NUM+' Incluida com sucesso!'
+				::jResponse['code']    := 200
+			EndIf
+		Else
+			::jResponse["message"] := 'Solicitacao : '+solicitacoes-> C1_NUM+' Incluida com sucesso!'
+			::jResponse['code']    := 200
+		EndIf
+		solicitacoes->(DbCloseArea())
+		//MsgInfo("Solicitação de Compra do produto " + aBody[1,2] + " incluída com Sucesso!")
+	Else
+		cError := ''
+		aLogAuto := GetAutoGRLog()
+		cError += aLogAuto[1]
+		::jResponse["message"] := EncodeUTF8(cError)
+		::jResponse['code']    := 500
+		//MostraErro()
+	EndIf
+
+Return ::jResponse
+
+
+Method enviaWorkflow(aBody as Array) as Json Class Bokusapi
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method enviaWorkflow()")
+	U_SendWork(aBody[1]['num'])
+	::jResponse["message"] := "cotacao enviada para o fornecedor"
+	::jResponse["code"] := 200
+
+return ::jResponse
+
+Method geraLink(aBody as Array) as Json Class Bokusapi
+	local cLink
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method geraLink()")
+	cLink := U_geraLink(aBody[1]['num'])
+	::jResponse["link"] := cLink
+
+return ::jResponse
+
+Method alterarSolicitacao(aBody as Array) as Json Class Bokusapi
+
+//	Situação 3: Produtos e Fornecedores - alteração
+	Local nX        as Numeric
+	Local aCotacao  as Array
+	Local cRet      as Character
+	
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method alterarSolicitacao()")
+
+	aCotacao := {}
+
+	::jResponse["message"]    := JsonObject():New()
+
+	//chama a cotação
+	for nX := 1 to len(aBody)
+		If !Empty(aBody[nX]['fornecedores'])
+			aAdd(aCotacao, {aBody[nX]['numSol'], aBody[nX]['produto'], aBody[nX]['fornecedores']})
+		EndIf
+
+	next nX
+
+	//se o array de cotação não estiver vazio eu chamo a cotação
+	If !Empty(aCotacao)
+		//Cotacao(cNumSol, aCotacao)
+		cRet := U_GeraCot(aCotacao)//fazer aSort para organizar por fornecedor para chamada de função do workflow
+		If !Empty(cRet)
+			//U_sendwork(cRet)
+			::jResponse["message"] := 'Cotacao: '+cRet+'  Gerada com sucesso!'
+			::jResponse['code']    := 200
+		Else
+			::jResponse["message"] := 'Cotação não foi gerada!'
+			::jResponse['code']    := 500
+		EndIf
+	EndIf
+
+Return ::jResponse
+
+Method altera(aBody as Array) as Json Class Bokusapi
+
+	Local aCabec         as Array
+	Local aLinha         as Array
+	Local aLinhas        as Array
+	Local cQuery         as Character
+	Local nX             as Numeric
+	Local cError		 as Character
+	Local nItem          as Numeric
+	Local _Enter := chr(13) + Chr(10)
+	Private lMsHelpAuto  as Logical
+	Private lMsErroAuto  as Logical
+	Private lAutoErrNoFile  as Logical
+	
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method altera()")
+
+	lMsHelpAuto := .T.
+	lMsErroAuto := .F.
+	lAutoErrNoFile	:= .T.
+	aLinhas := {}
+	nItem := 0
+
+	::jResponse["message"]    := JsonObject():New()
+
+	cQuery += "SELECT * " + _Enter
+	cQuery += "  FROM " + RetSqlName("SC1") + " SC1 " + _Enter
+	cQuery += " WHERE C1_FILIAL = '"+FWxFilial('SC1')+"' " + _Enter
+	cQuery += "   AND C1_NUM = "+ aBody[1]['numSol'] + " " + _Enter
+	cQuery += "   AND SC1.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("altera.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	solicitacoes->(DbGoTop())
+	aCabec := {{"C1_FILIAL",solicitacoes->C1_FILIAL,NIL},;
+		{"C1_NUM",solicitacoes-> C1_NUM,NIL},;
+		{"C1_SOLICIT", solicitacoes->C1_SOLICIT,NIL},;
+		{"C1_EMISSAO",sToD(solicitacoes->C1_EMISSAO),NIL}}
+	//{"C1_FILENT",solicitacoes->C1_FILENT,NIL},;
+
+	DbSelectArea('SC1')
+	for nX := 1 to len(aBody)
+		If aBody[nX]['legenda'] != 'cotado' .AND. aBody[nX]['exclui'] <> .T.
+			nItem := nItem + 1
+			aLinha := {{"C1_ITEM", Padl(nItem,4,'0'),Nil},;
+				{"C1_PRODUTO", PadR(aBody[nX]['produto'],TamSX3("C1_PRODUTO")[1])  ,Nil},;
+				{"C1_QUANT"  , val(aBody[nX]['quantidade']), Nil},;
+				{"C1_CC"     , aBody[nX]['cc']     , Nil},;
+				{"C1_LOCAL"  , aBody[nX]['armazem'], Nil}}
+
+			aAdd(aLinhas,aLinha)
+		ElseIf aBody[nX]['exclui'] == .T.
+			nItem := nItem + 1
+			SC1->(DbSelectArea('SC1'))
+			SC1->(DbSetOrder(2)) //Filial + produto + numSolic
+			SC1->(DbGoTop())
+			If DbSeek(FWxFilial("SC1") + PadR(aBody[nX]['produto'],TamSX3("C1_PRODUTO")[1]) + aBody[1]['numSol'])
+				RecLock('SC1',.F.)
+				//SC1->R_E_C_D_E_L_ := solicitacoes->R_E_C_N_O_
+				DbDelete()
+				SC1->(MsUnlock())
+				::jResponse["message"] := 'Solicitacao alterada com sucesso!'
+				::jResponse['code']    := 200
+
+			EndIf
+
+		EndIf
+
+	next
+
+
+	If len(aLinhas) > 0
+		// Teste de Alteração
+		MSExecAuto({|x,y,Z| mata110(x,y,Z)},aCabec,aLinhas,4) //opcao 4- alteracao
+
+		If !lMsErroAuto
+			::jResponse["message"] := 'Solicitacao alterada com sucesso!'
+			::jResponse['code']    := 200
+
+		Else
+			cError := ''
+			aLogAuto := GetAutoGRLog()
+
+			Error += aLogAuto[1]
+
+			ConOut(cError)
+			::jResponse["message"] := EncodeUTF8(cError)
+			::jResponse['code']    := 500
+
+		EndIf
+	EndIf
+
+
+
+Return ::jResponse
+
+Method deletaSolicitacao(cNumSol as Character) as Json Class Bokusapi
+
+	Local aCabec         as Array
+	Local aLinha         as Array
+	Local aLinhas        as Array
+	Local cError 		 as Character
+	Local aSolicitacoes  as Array
+	Local cQuery         as Character
+	Local _Enter := chr(13) + Chr(10)
+	Private lMsHelpAuto  as Logical
+	Private lMsErroAuto  as Logical
+	Private lAutoErrNoFile  as Logical
+	
+
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method deletaSolicitacao()")
+
+	lMsHelpAuto := .T.
+	lMsErroAuto := .F.
+	lAutoErrNoFile	:= .T.
+	aLinhas := {}
+
+	::jResponse["message"]    := JsonObject():New()
+
+	cQuery += "SELECT * " + _Enter
+	cQuery += "  FROM " + RetSqlName("SC1") + " SC1 " + _Enter
+	cQuery += " WHERE C1_FILIAL = '"+FWxFilial('SC1')+"' " + _Enter
+	cQuery += "   AND C1_NUM = "+ cNumSol + " " + _Enter
+	cQuery += "   AND SC1.D_E_L_E_T_ <> '*' " + _Enter
+
+	MemoWrite("deletaSolicitacao.SQL",cQuery) //Ita - 03/09/2024
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	aSolicitacoes := {}
+
+	solicitacoes->(DbGoTop())
+	aCabec := {{"C1_FILIAL",solicitacoes->C1_FILIAL,NIL},;
+		{"C1_NUM",solicitacoes-> C1_NUM,NIL},;
+		{"C1_EMISSAO",solicitacoes->C1_EMISSAO,NIL}}
+	//{"C1_FILENT",solicitacoes->C1_FILENT,NIL},;
+		//{"C1_SOLICIT", solicitacoes->C1_SOLICIT,NIL},;
+
+	solicitacoes->(DbGoTop())
+
+	While solicitacoes->(!EoF())
+		aLinha := {{"C1_ITEM", solicitacoes->C1_ITEM,Nil},;
+			{"C1_PRODUTO", solicitacoes->C1_PRODUTO,Nil},;
+			{"C1_UM", solicitacoes->C1_UM,Nil},;
+			{"C1_DESCRI", solicitacoes->C1_DESCRI,Nil},;
+			{"C1_QUANT"  , solicitacoes->C1_QUANT, Nil}}
+//{"C1_DATPRF"  , solicitacoes->C1_DATPRF, Nil},}
+
+		aAdd(aLinhas,aLinha)
+		solicitacoes->(DbSkip())
+	End
+
+
+	//::jResponse["message"] := 'Testando'
+
+	// Teste de Inclusao
+	MSExecAuto({|x,y,Z| mata110(x,y,Z)},aCabec,aLinhas,5) //opcao 5 - exclusao
+
+	If !lMsErroAuto
+		//ConfirmSx8()
+		::jResponse["message"] := "Solicitacao excluida com sucesso!"
+		::jResponse['code']    := 200
+	Else
+		cError := ''
+		aLogAuto := GetAutoGRLog()
+		cError += aLogAuto[1]
+		::jResponse["message"] := EncodeUTF8(cError)
+		::jResponse['code']    := 500
+		//MostraErro()
+	EndIf
+
+Return ::jResponse
+*/
+Method execute() as Json Class Bokusapi
+	ConOut("Itacolomy - ["+DTOC(Date())+"] ["+Time()+"] Processando Method execute()")
+Return ::jResponse
